@@ -8,6 +8,14 @@ const taskSelect = document.getElementById("activeTaskSelect");
 const taskTimeDisplay = document.getElementById("taskTimeDisplay")
 const timeSpentValue = document.getElementById("timeSpentValue");
 
+const goBackBtn = document.getElementById("goBackBtn");
+
+if (goBackBtn) {
+    goBackBtn.addEventListener("click", () => {
+        // This mimics the browser's "Back" button
+        window.location.href = "directing.html"
+    });
+}
 
 //Get the current user to find their specific tasks
 const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -77,7 +85,6 @@ taskSelect.addEventListener("change", (e) => {
 
 function addTimeToSelectedTask() {
     // Check if the user actually selected a task from the dropdown
-    const taskSelect = document.getElementById("activeTaskSelect");
     const selectedIndex = taskSelect.value;
 
     if (selectedIndex === "") {
@@ -85,12 +92,10 @@ function addTimeToSelectedTask() {
     }
 
     // Open the database (LocalStorage) to get the user's tasks
-    const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
     if (!currentUser) {
         return;
     }
 
-    const userTasksKey = `tasks_${currentUser.email}`;
     let savedTasks = JSON.parse(localStorage.getItem(userTasksKey)) || [];
 
     // Figure out how many minutes to add 
@@ -114,7 +119,6 @@ function addTimeToSelectedTask() {
     taskSelect.value = selectedIndex;
 
     // Update the text display below the dropdown
-    const timeSpentValue = document.getElementById("timeSpentValue")
     if (timeSpentValue) {
         timeSpentValue.textContent = savedTasks[selectedIndex].timeSpent;
     }
@@ -307,10 +311,6 @@ if (stopButton) {
 }
 
 // Analytics *Start*
-const openAnalyticsBtn = document.getElementById("openAnalyticsBtn");
-const closeAnalyticsBtn = document.getElementById("closeAnalyticsBtn");
-const analyticsModal = document.getElementById("analyticsModal");
-
 document.addEventListener("DOMContentLoaded", () => {
     const openAnalyticsBtn = document.getElementById("openAnalyticsBtn");
     const closeAnalyticsBtn = document.getElementById("closeAnalyticsBtn");
@@ -365,7 +365,7 @@ function generateAnalytics() {
     const taskNames = [];
     const taskTimes = [];
 
-    // Variables to trach the champion task
+    // Variables to track the champion task
     let maxTaskName = "No tasks yet";
     let maxTaskTime = 0;
 
@@ -445,7 +445,7 @@ function generateAnalytics() {
                         minRotation: 0,
                         callback: function(value) {
                             const label = this.getLabelForValue(value);
-                            // If the name is logner than 12 characters, cut it and add "..."
+                            // If the name is longer than 12 characters, cut it and add "..."
                             return label.length > 12 ? label.substring(0,12) + "..." : label;
                         }
 

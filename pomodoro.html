@@ -24,9 +24,10 @@
 
 </head>
 
-<div id="loading-overlay" class="slide-overlay"></div>
 
 <body>
+
+    <div id="loading-overlay" class="slide-overlay"></div>
 
     <button id="goBackBtn" class="go-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
@@ -103,44 +104,46 @@
 
 
 
+    <div id="analyticsModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent">
+            <button id="closeAnalyticsBtn" class="closeModalBtn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
 
+            <h2>Focus Analytics</h2>
+
+            <div class="kpiContainer">
+                <div class="kpiCard">
+                    <h3>Total Focus Time</h3>
+                    <p id="totalFocusTimeDisplay">0 minutes</p>
+                </div>
+            </div>
+            <div class="kpiContainer">
+                <div class="kpiCard">
+                    <h3>Most Time Spent Task</h3>
+                    <p id="mostTimeSpentTask">No Task</p>
+                    <p id="mostTimeSpentTaskTime">0 minutes</p>
+                </div>
+            </div>
+
+
+            <div class="chartContainer">
+                <canvas id="focusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="pomodoroScripts.js"></script>
+    <script src="registerLoginScript.js"></script>
+    
 </body>
 
 
-<div id="analyticsModal" class="glassModalOverlay" style="display: none;">
-    <div class="glassModalContent">
-        <button id="closeAnalyticsBtn" class="closeModalBtn">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-
-        <h2>Focus Analytics</h2>
-
-        <div class="kpiContainer">
-            <div class="kpiCard">
-                <h3>Total Focus Time</h3>
-                <p id="totalFocusTimeDisplay">0 minutes</p>
-            </div>
-        </div>
-        <div class="kpiContainer">
-            <div class="kpiCard">
-                <h3>Most Time Spent Task</h3>
-                <p id="mostTimeSpentTask">No Task</p>
-                <p id="mostTimeSpentTaskTime">0 minutes</p>
-            </div>
-        </div>
-        
-
-        <div class="chartContainer">
-            <canvas id="focusChart"></canvas>
-        </div>
-    </div>
-</div>
 
 
-<script src="pomodoroScripts.js"></script>
-<script src="registerLoginScript.js"></script>
-<script src="script.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
 
 
 </html>

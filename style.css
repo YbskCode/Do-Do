@@ -256,7 +256,6 @@ body
     padding: 10px 20px; /* Adjust padding for aesthetics */
     border-radius: 0 0 10px 10px; /* Keep bottom corners rounded, remove top corners */
     /* Ensure the background and border still look good */
-    backdrop-filter: blur(8px);
     background: rgba(255, 255, 255, 0.3); 
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
@@ -497,7 +496,7 @@ main
 
 .go-back-btn {
     /* 1. Positioning: Stick to Top-Left */
-    position: absolute;
+    position: fixed;
     top: 20px;
     left: 20px;
 
@@ -548,24 +547,17 @@ main
 
 .taskManagerDiv
 {
+    display: flex;
+    gap: 8px;
     background-color: rgba(255, 255, 255, 0.5);
     padding: 1rem;
     border-radius: 10px;
 }
 
-.activeFilter
+.taskManagerButton.activeFilter
 {
-    padding: 0.7rem 0.7rem;
-    border-radius: 6px;
-    color: white;
-    font-size: 1.1rem;
-    background: rgb(226, 79, 79);
-    border: 2px solid rgba(255, 255, 255, 0.18);
-    cursor: pointer;
-    transition: all 0.4s ease;
-    white-space: nowrap;
-    flex-grow: 1; /* Allows each button to equally share the available space */
-    font-size: 0.9rem;
+    background-color: rgb(226, 79, 79);
+    padding: 0.7rem;
 }
 
 .taskSelectorContainer
@@ -605,7 +597,7 @@ main
     color: #333;
     cursor: pointer;
     outline: none;
-    transition: all 0.3 ease;
+    transition: all 0.3s ease;
     font-family: inherit;
 }
 

@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Security Check: If no user is found, kick them back to login
     if (!currentUser) {
         window.location.href = "login.html";
+        return;
     }
 
     // 3. Create a unique "Key" for this specific user
@@ -122,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         taskList.appendChild(li)
-        taskInput.value = " ";
+        taskInput.value = "";
         toggleEmptyState();
         saveTaskLocalStorage();
 
