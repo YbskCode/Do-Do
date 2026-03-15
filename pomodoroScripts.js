@@ -386,6 +386,17 @@ function generateAnalytics() {
         }
     });
 
+    // Combine into pairs, sort by time descending, take top 5
+    const combined = taskNames.map((name, i) => ({ name, time: taskTimes[i] }));
+
+    combined.sort((a, b) => b.time - a.time);
+
+    const top5 = combined.slice(0, 5);
+
+    // Unpack back into seperate array for chart.js
+    const chartNames = top5.map(t => t.name);
+    const chartTimes = top5.map(t => t.time);
+
     // Update the KPI Scoreboard 
     const totalDisplay = document.getElementById("totalFocusTimeDisplay");
     if (totalDisplay) {
@@ -419,10 +430,10 @@ function generateAnalytics() {
     focusChartInstance = new Chart(ctx, {
         type: "bar", // A clean, vertical bar chart
         data: {
-            labels: taskNames, // The X-axis
+            labels: chartNames, // The X-axis
             datasets: [{
                 label: "Minutes Focused",
-                data: taskTimes, // The Y-axis
+                data: chartTimes, // The Y-axis
                 backgroundColor: "rgb(222, 134, 124, 0.5)",
                 borderColor: "rgb(222, 134, 124, 1)",
                 borderWidth: 1,
