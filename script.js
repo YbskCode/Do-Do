@@ -38,6 +38,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // If the visibleTasks = 0 then display emptyImage
         emptyImage.style.display = visibleTasks === 0 ? "block" : "none";
+
+        // If there is no task then do not display taskList so emptyImage can be centered
+        taskList.style.display = visibleTasks === 0 ? "none" : "block";
     }
 
     const loadTaskFromLocalStorage = () => {
