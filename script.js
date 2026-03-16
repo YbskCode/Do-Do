@@ -5,6 +5,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const emptyImage = document.querySelector(".emptyImg");
     const todosContainer = document.querySelector(".todosContainer");
 
+    // Checking which task is currently being edited: Issue #19
+    let editingLi = null
+
     const goBackBtn = document.getElementById("goBackBtn");
 
     if (goBackBtn) {
@@ -67,9 +70,27 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // If we are in edit mode, update the existiong code instead of creating a new one
+        if (editingLi) {
+
+            // Update the task name in the DOM
+            editingLi.querySelector("span").textContent = taskText;
+
+            editingLi.style.display = "flex";
+
+            // save the new task name to localStorage1
+            saveTaskLocalStorage();
+
+            // Clear edit state
+            taskInput.value = "";
+            editingLi = null;
+            return; // Stop here, don't create a new task
+        }
+
         const li = document.createElement("li");
 
         li.dataset.timeSpent = timeSpent;
+
 
         if (archived) {
             li.classList.add("archived");
@@ -112,11 +133,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         editBtn.addEventListener("click", () => {
             if (!checkbox.checked) {
+
+                // Remembers which li we are editing
+                editingLi = li;
+
                 taskInput.value = li.querySelector("span").textContent;
-                li.remove();
-                saveTaskLocalStorage();
+
+                li.style.display = "none";
+
+                taskInput.focus();
             }
-        })
+        });
 
         deleteBtn.addEventListener("click", () => {
             li.classList.add("archived");
