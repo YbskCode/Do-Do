@@ -471,7 +471,7 @@ function generateAnalytics() {
 }
 
 // Activated Timer
-const pomodoroBtn = document.getElementById("pomodoro-session");
+const pomodoroTimerBtn = document.getElementById("pomodoro-session");
 const shortBreakBtn = document.getElementById("short-break-session");
 const longBreakBtn = document.getElementById("long-break-session");
 
@@ -484,8 +484,8 @@ const activeTimerBtn = (clickedButton) => {
     clickedButton.classList.add("activeFilter");
 }
 
-if (pomodoroBtn && shortBreakBtn && longBreakBtn) {
-    pomodoroBtn.addEventListener("click", () => activeTimerBtn(pomodoroBtn));
+if (pomodoroTimerBtn && shortBreakBtn && longBreakBtn) {
+    pomodoroTimerBtn.addEventListener("click", () => activeTimerBtn(pomodoroTimerBtn));
     shortBreakBtn.addEventListener("click", () => activeTimerBtn(shortBreakBtn));
     longBreakBtn.addEventListener("click", () => activeTimerBtn(longBreakBtn));
 }
