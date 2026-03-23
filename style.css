@@ -571,6 +571,12 @@ main
     padding: 0.7rem;
 }
 
+.pomodoroButton.activeFilter
+{
+    background-color: rgb(226, 79, 79);
+    padding: 0.7rem;
+}
+
 .taskSelectorContainer
 {
     grid-column: 1;

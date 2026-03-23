@@ -469,3 +469,23 @@ function generateAnalytics() {
         }
     });
 }
+
+// Activated Timer
+const pomodoroBtn = document.getElementById("pomodoro-session");
+const shortBreakBtn = document.getElementById("short-break-session");
+const longBreakBtn = document.getElementById("long-break-session");
+
+const activeTimerBtn = (clickedButton) => {
+
+    // Remove activeFilter class from every button
+    allButtons.forEach(btn => btn.classList.remove("activeFilter"));
+
+    // Add activeFilter class only to recently clicked button
+    clickedButton.classList.add("activeFilter");
+}
+
+if (pomodoroBtn && shortBreakBtn && longBreakBtn) {
+    pomodoroBtn.addEventListener("click", () => activeTimerBtn(pomodoroBtn));
+    shortBreakBtn.addEventListener("click", () => activeTimerBtn(shortBreakBtn));
+    longBreakBtn.addEventListener("click", () => activeTimerBtn(longBreakBtn));
+}
