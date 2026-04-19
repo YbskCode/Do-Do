@@ -39,10 +39,11 @@ if (loginButton) {
 }
 
 
-function handleRegistration(event) {
+async function handleRegistration(event) {
     // Prevent the default form submission action
     event.preventDefault(); 
 
+    const name = document.getElementById("regName").value.trim();
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
     const refCode = refCodeInput.value.trim();
@@ -64,49 +65,44 @@ function handleRegistration(event) {
         return;
     }
 
-    // 3. Retrieve or Initialize User List
-    // Get existing users (or an empty array if none exist)
-    let users = JSON.parse(localStorage.getItem('users')) || [];
-
-
-    // 4. Check for Existing User (prevent duplicate registration)
-    const userExists = users.some(user => user.email === email);
-    if (userExists) {
-        Swal.fire({
-            icon: 'info',
-            title: 'Already Registered',
-            text: 'This email is already registered. Please log in.',
+    // 3. Send to backend
+    try{
+        const response = await fetch("http://localhost:3000/register", {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password })
         });
-        return;
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            Swal.fire({
+                icon: "error", 
+                title: "Registration Failed",
+                text: data.message
+            });
+            return;
+        }
+
+        Swal.fire({
+            icon: "success",
+            title: "Registration Successful!",
+            text: "You can now log in",
+            showConfirmButton: false,
+            timer: 2000
+        }).then(() => {
+            emailInput.value = "";
+            passwordInput.value = "";
+            refCodeInput.value = "";
+            window.location.href = "login.html";
+        });
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong! Is the server is running?");
     }
-
-    // 5. Create New User Object
-    const newUser = {
-        email: email,
-        password: password
-    };
-
-    users.push(newUser);
-
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // 6. Success!
-    Swal.fire({
-        icon: 'success',
-        title: 'Registration Successful!',
-        text: 'You can now proceed to log in.',
-        showConfirmButton: false,
-        timer: 2000
-    }).then(() => {
-        // Clear the form and redirect after the SweetAlert closes
-        emailInput.value = '';
-        passwordInput.value = '';
-        refCodeInput.value = '';
-        window.location.href = 'login.html';
-    });
 };
 
-function handleLogin(event) {
+async function handleLogin(event) {
     event.preventDefault(); // Stop default form submission
 
     const email = loginEmailInput.value.trim();
@@ -121,38 +117,45 @@ function handleLogin(event) {
         return;
     }
 
-    // 1. Retrieve all stored users from Local Storage
-    // Parse the JSON string back into a JavaScript array.
-    const users = JSON.parse(localStorage.getItem('users')) || [];
+    try {
+        const response = await fetch("http://localhost:3000/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
 
-    // 2. Find the user with matching email and password
-    const foundUser = users.find(user => 
-        user.email === email && user.password === password
-    );
+        const data = await response.json();
 
-    if (foundUser) {
-        // 3. Successful Login: Store the logged-in status
-        localStorage.setItem('loggedInUser', JSON.stringify({ email: foundUser.email }));
+        if (!response.ok) {
+            Swal.fire({
+                icon: "error",
+                title: "Login Failed",
+                text: data.message
+            });
+            loginPasswordInput.value = "";
+            return;
+        }
 
-        // 4. Success Alert and Redirect
+        // Store logged in user in localStorage (just for session)
+        localStorage.setItem("loggedInUser", JSON.stringify({
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email
+        }));
+
         Swal.fire({
-            icon: 'success',
-            title: 'Welcome Back!',
-            text: 'Login successful! Redirecting...',
+            icon: "success",
+            title: "Welcome Back!",
+            text: "Login successful! Redirecting...",
             showConfirmButton: false,
             timer: 1500
         }).then(() => {
-            window.location.href = 'directing.html'; 
+            window.location.href = "directing.html";
         });
 
-    } else {
-        // Unsuccessful Login
-        Swal.fire({
-            icon: 'error',
-            title: 'Login Failed',
-            text: 'Invalid email or password.',
-        });
-        loginPasswordInput.value = '';
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong! Is the server running?");
     }
 };
 
