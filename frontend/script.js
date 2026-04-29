@@ -31,10 +31,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
-    // 3. Create a unique "Key" for this specific user
-    // Example result: "tasks_yusuf@gmail.com"
-    const userTasksKey = `tasks_${currentUser.email}`;
-
     const toggleEmptyState = () => {
         // Get me the li elements that don't have "archived" class
         const visibleTasks = taskList.querySelectorAll("li:not(.archived)").length;
@@ -46,25 +42,20 @@ document.addEventListener("DOMContentLoaded", () => {
         taskList.style.display = visibleTasks === 0 ? "none" : "block";
     }
 
-    const loadTaskFromLocalStorage = () => {
-        const savedTasks = JSON.parse(localStorage.getItem(userTasksKey)) || [];
-        savedTasks.forEach(task => {
-            addTask(task.text, task.completed, task.timeSpent, task.archived);
-        });
-        toggleEmptyState();
+    const loadTaskFromDB = async () => {
+        try {
+            const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
+            const tasks = await response.json();
+            tasks.forEach(task => {
+                addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
+            });
+            toggleEmptyState();
+        } catch (err) {
+            console.error("Failed to load tasks: ", err);
+        }
     }
 
-    const saveTaskLocalStorage = () => {
-        const tasks = Array.from(taskList.querySelectorAll("li")).map(li => ({
-            text: li.querySelector("span").textContent,
-            completed: li.querySelector(".checkbox").checked,
-            archived: li.classList.contains("archived"),
-            timeSpent: parseInt(li.dataset.timeSpent) || 0
-        }))
-        localStorage.setItem(userTasksKey, JSON.stringify(tasks));
-    };
-
-    const addTask = (text, completed = false, timeSpent = 0, archived = false) => {
+    const addTask = async (id = null, text, completed = false, timeSpent = 0, archived = false) => {
         const taskText = text || taskInput.value.trim();
         if (!taskText) {
             return;
@@ -73,22 +64,36 @@ document.addEventListener("DOMContentLoaded", () => {
         // If we are in edit mode, update the existiong code instead of creating a new one
         if (editingLi) {
 
-            // Update the task name in the DOM
-            editingLi.querySelector("span").textContent = taskText;
+            const newText = taskText;
+            const taskId = editingLi.dataset.id;
 
+            // Update the DOM
+            editingLi.querySelector("span").textContent = newText;
             editingLi.style.display = "flex";
 
-            // save the new task name to localStorage1
-            saveTaskLocalStorage();
+            // Update in database
+            try {
+                await fetch(`http://localhost:3000/tasks/${taskId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        task_name: newText,
+                        task_completed: editingLi.querySelector(".checkbox").checked,
+                        time_spent: parseInt(editingLi.dataset.timeSpent) || 0
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to update task:", err);
+            }
 
             // Clear edit state
             taskInput.value = "";
             editingLi = null;
-            return; // Stop here, don't create a new task
+            return;
         }
 
         const li = document.createElement("li");
-
+        li.dataset.id = id; // Store database id
         li.dataset.timeSpent = timeSpent;
 
 
@@ -122,14 +127,30 @@ document.addEventListener("DOMContentLoaded", () => {
             editBtn.style.pointerEvents = "none";
         }
 
-        checkbox.addEventListener("change", () => {
+        checkbox.addEventListener("change", async () => {
             const isChecked = checkbox.checked;
             li.classList.toggle("completed", isChecked)
             editBtn.disabled = isChecked;
             editBtn.style.opacity = isChecked ? "0.5" : "1";
             editBtn.style.pointerEvents = isChecked ? "none" : "auto";
-            saveTaskLocalStorage();
-        })
+
+            // Update task in database
+            try {
+                await fetch(`http://localhost:3000/tasks/${li.dataset.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        task_name: li.querySelector("span").textContent,
+                        task_completed: isChecked,
+                        time_spent: parseInt(li.dataset.timeSpent) || 0
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to update task:", err);
+            }
+
+
+        });
 
         editBtn.addEventListener("click", () => {
             if (!checkbox.checked) {
@@ -145,22 +166,49 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        deleteBtn.addEventListener("click", () => {
-            li.classList.add("archived");
-            li.style.display = "none";
-            toggleEmptyState();
-            saveTaskLocalStorage();
+        deleteBtn.addEventListener("click", async () => {
+            try {
+                await fetch(`http://localhost:3000/tasks/${li.dataset.id}/archive`, {
+                    method: "PUT"
+                });
+
+                li.classList.add("archived");
+                li.style.display = "none";
+                toggleEmptyState();
+
+            } catch (err) {
+                console.error("Failed to archive task:", err);
+            }
         });
 
         taskList.appendChild(li)
         taskInput.value = "";
         toggleEmptyState();
-        saveTaskLocalStorage();
 
-        // Find whichever button currently has the purple highlight
+        if (id === null) {
+            // POST new task to database
+            try {
+                const response = await fetch("http://localhost:3000/tasks", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        task_name: taskText
+                    })
+                });
+
+                const data = await response.json();
+
+                // Store the database ID on the li so we can reference it later
+                li.dataset.id = data.id;
+
+            } catch (err) {
+                console.error("Failed to save task:", err);
+            }
+        }
+
+        // Re-run active filter
         const activeFilterBtn = document.querySelector(".activeFilter");
-        
-        // If one exists, simulate a click on it to re-run the filter logic!
         if (activeFilterBtn) {
             activeFilterBtn.click();
         }
@@ -178,7 +226,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    loadTaskFromLocalStorage();
+    loadTaskFromDB();
 
     //Filtering the tasks (All, Active and Completed)
 
@@ -203,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (task.classList.contains("archived")) {
                 task.style.display = "none";
-                return; 
+                return;
 
             }
             //Asking if the task is completed. Returns true or false
