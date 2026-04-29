@@ -19,7 +19,6 @@ if (goBackBtn) {
 
 //Get the current user to find their specific tasks
 const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
-const userTasksKey = currentUser ? `tasks_${currentUser.email}` : "null";
 
 let timerInterval = null;
 let isRunning = false;
@@ -30,39 +29,32 @@ let timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
 
 
 //Load tasks into the dropdown
-function loadTasksIntoDropdown() {
-    if (!userTasksKey) {
+async function loadTasksIntoDropdown() {
+    if (!currentUser) {
         return;
     }
 
-    const savedTasks = JSON.parse(localStorage.getItem(userTasksKey)) || [];
+    try {
+        const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
+        const savedTasks = await response.json();
 
-    //Clear existing options (except the default one)
-    taskSelect.innerHTML = '<option value="">-- No Task Selected --</option>';
+        // Clear existing options
+        taskSelect.innerHTML = '<option value="">-- No Task Selected --</option>';
 
-    //Loop through tasks and only add the ones that are not completed
-    savedTasks.forEach((task, index) => {
+        savedTasks.forEach(task => {
+            if (task.task_archived || task.task_completed) return;
 
-        if (task.archived) {
-            return;
-        }
-
-        if (!task.completed) {
             const option = document.createElement("option");
-            option.value = index; //We use the array index to identify the task later
-            option.textContent = task.text;
-
-            //If the task doesn't have a timeSpent property yet, give it one
-            if (task.timeSpent === undefined) {
-                task.timeSpent = 0;
-            }
-
-            //Store the time spent right on the option element for easy access
-            option.dataset.timeSpent = task.timeSpent;
+            option.value = task.id; // 👈 now using database ID instead of array index
+            option.textContent = task.task_name; // 👈 updated field name
+            option.dataset.timeSpent = task.time_spent; // 👈 updated field name
 
             taskSelect.appendChild(option);
-        }
-    });
+        });
+
+    } catch (err) {
+        console.error("Failed to load tasks into dropdown:", err);
+    }
 };
 
 loadTasksIntoDropdown();
@@ -83,46 +75,46 @@ taskSelect.addEventListener("change", (e) => {
     }
 });
 
-function addTimeToSelectedTask() {
-    // Check if the user actually selected a task from the dropdown
-    const selectedIndex = taskSelect.value;
+async function addTimeToSelectedTask() {
+    const selectedTaskId = taskSelect.value;
 
-    if (selectedIndex === "") {
-        return;
-    }
+    if (selectedTaskId === "") return;
+    if (!currentUser) return;
 
-    // Open the database (LocalStorage) to get the user's tasks
-    if (!currentUser) {
-        return;
-    }
-
-    let savedTasks = JSON.parse(localStorage.getItem(userTasksKey)) || [];
-
-    // Figure out how many minutes to add 
-    // Grab the duration of the timer just finished
     const minutesCompleted = parseInt(currentTimerElement.dataset.duration);
 
-    // Go to the exact same task using the index, and add the minutes
-    // Include safety check just in case
-    if (savedTasks[selectedIndex].timeSpent === undefined) {
-        savedTasks[selectedIndex].timeSpent = 0;
+    // Get current time spent from the selected option
+    const selectedOption = taskSelect.options[taskSelect.selectedIndex];
+    const currentTimeSpent = parseInt(selectedOption.dataset.timeSpent) || 0;
+    const newTimeSpent = currentTimeSpent + minutesCompleted;
+
+    try {
+        // Update time_spent in database
+        await fetch(`http://localhost:3000/tasks/${selectedTaskId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                task_name: selectedOption.textContent,
+                task_completed: false,
+                time_spent: newTimeSpent
+            })
+        });
+
+        // Refresh dropdown
+        await loadTasksIntoDropdown();
+
+        // Keep the same task selected
+        taskSelect.value = selectedTaskId;
+
+        // Update the time display
+        if (timeSpentValue) {
+            timeSpentValue.textContent = newTimeSpent;
+        }
+
+    } catch (err) {
+        console.error("Failed to update time:", err);
     }
-    savedTasks[selectedIndex].timeSpent += minutesCompleted;
-
-    // Save the updated list back into LocalStorage
-    localStorage.setItem(userTasksKey, JSON.stringify(savedTasks));
-
-    // Refresh the dropdown UI so the new time shows up instantly
-    loadTasksIntoDropdown();
-
-    // Make sure the dropdown stays on the task they were just working on
-    taskSelect.value = selectedIndex;
-
-    // Update the text display below the dropdown
-    if (timeSpentValue) {
-        timeSpentValue.textContent = savedTasks[selectedIndex].timeSpent;
-    }
-};
+}
 
 /**
  * Updates the text content of the currently active timer display.
@@ -350,125 +342,116 @@ document.addEventListener("DOMContentLoaded", () => {
 // Variable to remember the chart so we can erase it and redraw it cleanly
 let focusChartInstance = null;
 
-function generateAnalytics() {
-    // fetch the logged-in user's tasks from LocalStorage
-    const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
-    if (!currentUser) {
-        return;
-    };
+async function generateAnalytics() {
+    if (!currentUser) return;
 
-    const userTasksKey = `tasks_${currentUser.email}`;
-    const savedTasks = JSON.parse(localStorage.getItem(userTasksKey)) || [];
+    try {
+        const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}/all`);
+        const savedTasks = await response.json();
 
-    // Prepare data arrays
-    let totalMinutes = 0;
-    const taskNames = [];
-    const taskTimes = [];
+        // Prepare data arrays
+        let totalMinutes = 0;
+        const taskNames = [];
+        const taskTimes = [];
 
-    // Variables to track the champion task
-    let maxTaskName = "No tasks yet";
-    let maxTaskTime = 0;
+        let maxTaskName = "No tasks yet";
+        let maxTaskTime = 0;
 
-    savedTasks.forEach(task => {
-        const time = parseInt(task.timeSpent) || 0;
-        totalMinutes += time;
+        savedTasks.forEach(task => {
+            const time = parseInt(task.time_spent) || 0; 
+            totalMinutes += time;
 
-        // We only want to graph tasks that actually have time spent on them
-        if (time > 0) {
-            taskNames.push(task.text);
-            taskTimes.push(time);
+            if (time > 0) {
+                taskNames.push(task.task_name); 
+                taskTimes.push(time);
+            }
+
+            if (time > maxTaskTime) {
+                maxTaskTime = time;
+                maxTaskName = task.task_name; 
+            }
+        });
+
+        // Top 5 logic
+        const combined = taskNames.map((name, i) => ({ name, time: taskTimes[i] }));
+        combined.sort((a, b) => b.time - a.time);
+        const top5 = combined.slice(0, 5);
+        const chartNames = top5.map(t => t.name);
+        const chartTimes = top5.map(t => t.time);
+
+        // Update KPI scoreboards
+        const totalDisplay = document.getElementById("totalFocusTimeDisplay");
+        if (totalDisplay) {
+            totalDisplay.textContent = `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'}`;
         }
 
-        // Trach the most time spent task
-        if (time > maxTaskTime) {
-            maxTaskTime = time;
-            maxTaskName = task.text;
-        }
-    });
-
-    // Combine into pairs, sort by time descending, take top 5
-    const combined = taskNames.map((name, i) => ({ name, time: taskTimes[i] }));
-
-    combined.sort((a, b) => b.time - a.time);
-
-    const top5 = combined.slice(0, 5);
-
-    // Unpack back into seperate array for chart.js
-    const chartNames = top5.map(t => t.name);
-    const chartTimes = top5.map(t => t.time);
-
-    // Update the KPI Scoreboard 
-    const totalDisplay = document.getElementById("totalFocusTimeDisplay");
-    if (totalDisplay) {
-        totalDisplay.textContent = `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'}`;
-    }
-
-    // Update the Most Time Spent KPI Scoreboard
-    const mostTimeDisplay = document.getElementById("mostTimeSpentTask");
-    const mostTimeDisplayTime = document.getElementById("mostTimeSpentTaskTime");
-    if (mostTimeDisplay) {
-        if (maxTaskTime > 0) {
-            mostTimeDisplay.textContent = `Task Name: ${maxTaskName}`;
-            mostTimeDisplayTime.textContent = `Task Duration: ${maxTaskTime} minutes`
-        } else {
-            mostTimeDisplay.textContent = "0 minutes";
-        }
-    }
-
-    // Draw the chart.js graph
-    const canvas = document.getElementById("focusChart");
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-
-    // If a chart already exists, destroy it before drawing a new one
-    if (focusChartInstance) {
-        focusChartInstance.destroy();
-    }
-
-    // Paint the new chart
-    focusChartInstance = new Chart(ctx, {
-        type: "bar", // A clean, vertical bar chart
-        data: {
-            labels: chartNames, // The X-axis
-            datasets: [{
-                label: "Minutes Focused",
-                data: chartTimes, // The Y-axis
-                backgroundColor: "rgb(222, 134, 124, 0.5)",
-                borderColor: "rgb(222, 134, 124, 1)",
-                borderWidth: 1,
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: "rgb(255, 255, 255, 0.1)" },
-                    ticks: { color: "#e0e0e0", stepSize: 5 }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: "#e0e0e0",
-                        maxRotation: 0, // Forces the text to sit perfectly flat, no diagonal tilt!
-                        minRotation: 0,
-                        callback: function(value) {
-                            const label = this.getLabelForValue(value);
-                            // If the name is longer than 12 characters, cut it and add "..."
-                            return label.length > 12 ? label.substring(0,12) + "..." : label;
-                        }
-
-                     }
-                }
-            },
-            plugins: {
-                legend: {display: false } // Hide the top legend for a cleaner UI
+        const mostTimeDisplay = document.getElementById("mostTimeSpentTask");
+        const mostTimeDisplayTime = document.getElementById("mostTimeSpentTaskTime");
+        if (mostTimeDisplay) {
+            if (maxTaskTime > 0) {
+                mostTimeDisplay.textContent = `Task Name: ${maxTaskName}`;
+                mostTimeDisplayTime.textContent = `Task Duration: ${maxTaskTime} minutes`;
+            } else {
+                mostTimeDisplay.textContent = "No tasks yet";
             }
         }
-    });
+
+        // Draw chart
+        const canvas = document.getElementById("focusChart");
+        if (!canvas) return;
+
+        const ctx = canvas.getContext("2d");
+
+        if (focusChartInstance) {
+            focusChartInstance.destroy();
+        }
+
+        focusChartInstance = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: chartNames,
+                datasets: [{
+                    label: "Minutes Focused",
+                    data: chartTimes,
+                    backgroundColor: "rgb(222, 134, 124, 0.5)",
+                    borderColor: "rgb(222, 134, 124, 1)",
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: "rgb(255, 255, 255, 0.1)" },
+                        ticks: { color: "#e0e0e0", stepSize: 5 }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: "#e0e0e0",
+                            maxRotation: 0,
+                            minRotation: 0,
+                            callback: function (value) {
+                                const label = this.getLabelForValue(value);
+                                return label.length > 12 ? label.substring(0, 12) + "..." : label;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error("Failed to generate analytics:", err);
+    }
 }
+
 
 // Activated Timer
 const pomodoroTimerBtn = document.getElementById("pomodoro-session");
