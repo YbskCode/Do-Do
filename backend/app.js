@@ -102,6 +102,22 @@ app.get("/tasks/:user_id", (req,res) => {
     )
 })
 
+// Get ALL tasks for analytics (including archived)
+app.get("/tasks/:user_id/all", (req, res) => {
+    const { user_id } = req.params;
+    db.query("SELECT * FROM tasks WHERE user_id = ?", 
+        [user_id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            res.status(200).json(results);
+        }
+    );
+});
+
 // Post a new task
 app.post("/tasks", (req,res) => {
     const { user_id, task_name } = req.body;
