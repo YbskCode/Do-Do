@@ -89,7 +89,7 @@ app.post("/login", (req,res) => {
 // Get all tasks for a user
 app.get("/tasks/:user_id", (req,res) => {
     const { user_id } = req.params;
-    db.query("SELECT * FROM tasks WHERE user_id = ?", 
+    db.query("SELECT * FROM tasks WHERE user_id = ? AND task_archived = false", 
         [user_id],
         (err, results) => {
             if (err) {
