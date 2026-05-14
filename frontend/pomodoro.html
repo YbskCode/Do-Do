@@ -37,7 +37,9 @@
     <div class="header-auth-container">
         <div class="header-auth">
             <p id="userEmailDisplay" class="user-info"></p>
-
+            <button id="darkModeBtn" class="darkModeBtn">
+                <i class="fa-solid fa-moon"></i>
+            </button>
             <button id="logoutBtn" class="logoutBtn">
                 Logout <i class="fa-solid fa-right-from-bracket"></i>
             </button>
@@ -64,7 +66,8 @@
             <h1>Pomodoro</h1>
 
             <div class="buttonContainer">
-                <button class="pomodoroButton activeFilter" id="pomodoro-session" data-target-id="pomodoro-timer">Pomodoro</button>
+                <button class="pomodoroButton activeFilter" id="pomodoro-session"
+                    data-target-id="pomodoro-timer">Pomodoro</button>
                 <button class="pomodoroButton" id="short-break-session" data-target-id="short-break-timer">Short
                     Break</button>
                 <button class="pomodoroButton" id="long-break-session" data-target-id="long-break-timer">Long
@@ -136,7 +139,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="pomodoroScripts.js"></script>
     <script src="registerLoginScript.js"></script>
-    
+    <script src="darkmode.js"></script>
+
 </body>
 
 

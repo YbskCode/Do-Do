@@ -130,3 +130,59 @@ p
     transform: scale(1.1);
     background: rgb(222, 113, 113);
 }
+
+/* Dark Mode CSS */
+
+/* Dark mode overlay on background */
+body.dark-mode::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Darker glass panels */
+body.dark-mode .todoApp,
+body.dark-mode .directingDiv,
+body.dark-mode .pomodoroApp,
+body.dark-mode .taskSelectorContainer,
+body.dark-mode .analyticsContainer {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Darker header */
+body.dark-mode .header-auth {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Darker task items */
+body.dark-mode #taskList li {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Darker input */
+body.dark-mode .inputArea input {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode toggle button */
+.darkModeBtn {
+    padding: 6px 10px;
+    border-radius: 15px;
+    color: white;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.darkModeBtn:hover {
+    transform: scale(1.1);
+}
