@@ -8,7 +8,9 @@
 
     <link rel="stylesheet" href="registerLoginStyle.css">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 </head>
 
@@ -17,11 +19,16 @@
 <body>
 
     <div class="container">
+
+        <button id="darkModeBtn" class="darkModeBtn" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+
         <div class="formBox">
 
             <h1>Register</h1>
 
-            <form class="inputArea" id="registerForm"  action="">
+            <form class="inputArea" id="registerForm" action="">
                 <input type="text" id="regName" name="name" placeholder="Name" required>
                 <input type="email" id="regEmail" name="email" placeholder="Email" required>
                 <input type="password" id="regPassword" name="password" placeholder="Password" required>
@@ -31,12 +38,13 @@
             </form>
         </div>
     </div>
-    
 
-    
+
+
 </body>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="registerLoginScript.js"></script>
+<script src="darkmode.js"></script>
 
 </html>
