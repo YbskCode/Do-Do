@@ -95,6 +95,21 @@
         </div>
 
         <div class="analyticsContainer">
+
+            <!-- Nature Sounds -->
+            <div class="soundContainer">
+                <label>Nature Sounds</label>
+                <select id="soundSelect">
+                    <option value="">-- Select Sound --</option>
+                    <option value="sounds/rain.mp3">🌧️ Rain</option>
+                    <option value="sounds/whitenoise.mp3">🌊 White Noise</option>
+                    <option value="sounds/lofi.mp3">🎵 Lofi Chill</option>
+                </select>
+                <button id="soundToggleBtn" class="pomodoroButton">
+                    <i class="fa-solid fa-play"></i> Play
+                </button>
+            </div>
+
             <label for="activeTaskSelect">Show Analytics</label>
             <button id="openAnalyticsBtn" class="pomodoroButton analyticsButton">
                 <i class="fa-solid fa-chart-simple"></i>
@@ -140,6 +155,7 @@
     <script src="pomodoroScripts.js"></script>
     <script src="registerLoginScript.js"></script>
     <script src="darkmode.js"></script>
+    <script src="soundPlayer.js"></script>
 
 </body>
 
