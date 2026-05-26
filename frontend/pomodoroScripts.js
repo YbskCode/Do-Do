@@ -195,8 +195,13 @@ function countdown() {
 
     if (timeLeft <= 0) {
 
-        // Update the task before stopping the timer
-        addTimeToSelectedTask();
+        // Update the task before stopping the timer but only if it is pomodoro timeri
+        if (currentTimerElement.id === "pomodoro-timer") {
+
+            addTimeToSelectedTask();
+
+        }
+        
 
         stopTimer(); // Clear interval and reset state
         updateDisplay(0);
