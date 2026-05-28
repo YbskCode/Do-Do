@@ -863,3 +863,26 @@ body.dark-mode .inputArea input {
     outline: none;
     font-family: inherit;
 }
+
+/* For Loading Spinner */
+.loadingSpinner {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: white;
+    font-size: 1rem;
+    padding: 20px;
+    width: 100%;
+}
+
+.loadingSpinner i {
+    font-size: 2rem;
+}
+/* For Loading Spinner */
+
+.btn-loading {
+    opacity: 0.5 !important;
+    pointer-events: none;
+}

@@ -65,6 +65,9 @@ async function handleRegistration(event) {
         return;
     }
 
+    registerButton.disabled = true;
+    registerButton.textContent = "Registering...";
+
     // 3. Send to backend
     try{
         const response = await fetch("http://localhost:3000/register", {
@@ -99,6 +102,10 @@ async function handleRegistration(event) {
     } catch (err) {
         console.error(err);
         alert("Something went wrong! Is the server is running?");
+    } finally {
+        // Always re-enable button whether success or error
+        registerButton.disabled = false;
+        registerButton.textContent = "Register";
     }
 };
 
@@ -116,6 +123,9 @@ async function handleLogin(event) {
         });
         return;
     }
+
+    loginButton.disabled = true;
+    loginButton.textContent = "Logging in...";
 
     try {
         const response = await fetch("http://localhost:3000/login", {
@@ -156,6 +166,9 @@ async function handleLogin(event) {
     } catch (err) {
         console.error(err);
         alert("Something went wrong! Is the server running?");
+    } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Login";
     }
 };
 
