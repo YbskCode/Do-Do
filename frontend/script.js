@@ -43,15 +43,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const loadTaskFromDB = async () => {
+
+        const spinner = document.getElementById("tasksLoadingSpinner");
+
+        // Show spinner, hide list and empty image
+        spinner.style.display = "flex";
+        taskList.style.display = "none";
+        emptyImage.style.display = "none";
+
+
         try {
             const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
             const tasks = await response.json();
             tasks.forEach(task => {
                 addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
             });
-            toggleEmptyState();
         } catch (err) {
             console.error("Failed to load tasks: ", err);
+            taskList.innerHTML = '<p style="color: white; text-align: center;">Could not load tasks. Please check your connection.</p>';
+
+        } finally {
+            // Always hide spinner when done, whether success or error
+            spinner.style.display = "none";
+            toggleEmptyState();
         }
     }
 

@@ -34,6 +34,9 @@ async function loadTasksIntoDropdown() {
         return;
     }
 
+    taskSelect.disabled = true;
+    taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
+
     try {
         const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
         const savedTasks = await response.json();
@@ -54,6 +57,9 @@ async function loadTasksIntoDropdown() {
 
     } catch (err) {
         console.error("Failed to load tasks into dropdown:", err);
+    } finally {
+        // Always re-enable dropdown when done
+        taskSelect.disabled = false;
     }
 };
 
@@ -87,6 +93,8 @@ async function addTimeToSelectedTask() {
     const selectedOption = taskSelect.options[taskSelect.selectedIndex];
     const currentTimeSpent = parseInt(selectedOption.dataset.timeSpent) || 0;
     const newTimeSpent = currentTimeSpent + minutesCompleted;
+
+
 
     try {
         // Update time_spent in database
@@ -323,7 +331,19 @@ document.addEventListener("DOMContentLoaded", () => {
         openAnalyticsBtn.addEventListener('click', (e) => {
             e.preventDefault(); // Good practice: stops any weird button defaults
 
-            generateAnalytics();
+            // Show modal immediately with loading state
+            analyticsModal.style.display = "flex";
+
+            // Disable button while loading
+            openAnalyticsBtn.disabled = true;
+            openAnalyticsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            generateAnalytics().finally(() => {
+                // Re-enable button when done
+                openAnalyticsBtn.disabled = false;
+                openAnalyticsBtn.innerHTML = '<i class="fa-solid fa-chart-simple"></i>';
+
+            })
 
             analyticsModal.style.display = 'flex';
         });
@@ -349,6 +369,13 @@ let focusChartInstance = null;
 
 async function generateAnalytics() {
     if (!currentUser) return;
+
+    const spinner = document.getElementById("analyticsLoadingSpinner");
+    const canvas = document.getElementById("focusChart");
+
+    // Show spinner hide chart
+    spinner.style.display = "flex";
+    canvas.style.display = "none";
 
     try {
         const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}/all`);
@@ -454,6 +481,10 @@ async function generateAnalytics() {
 
     } catch (err) {
         console.error("Failed to generate analytics:", err);
+    } finally {
+        // Always hide spinner and show chart when it is done
+        spinner.style.display = "none";
+        canvas.style.display = "block";
     }
 }
 
