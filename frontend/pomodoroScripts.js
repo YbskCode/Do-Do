@@ -18,7 +18,26 @@ if (goBackBtn) {
 }
 
 //Get the current user to find their specific tasks
-const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
+let currentUser = null;
+try {
+    currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
+} catch (e) {
+    console.error("Error parsing loggedInUser from localStorage:", e);
+    localStorage.removeItem("loggedInUser");
+}
+
+// Wrapper around fetch that attaches the auth token and handles expired sessions
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("authToken");
+    const headers = { ...(options.headers || {}), "Authorization": `Bearer ${token}` };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+        localStorage.removeItem("loggedInUser");
+        localStorage.removeItem("authToken");
+        window.location.href = "login.html";
+    }
+    return response;
+}
 
 let timerInterval = null;
 let isRunning = false;
@@ -38,7 +57,7 @@ async function loadTasksIntoDropdown() {
     taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
 
     try {
-        const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
+        const response = await authFetch(`http://localhost:3000/tasks`);
         const savedTasks = await response.json();
 
         // Clear existing options
@@ -98,7 +117,7 @@ async function addTimeToSelectedTask() {
 
     try {
         // Update time_spent in database
-        await fetch(`http://localhost:3000/tasks/${selectedTaskId}`, {
+        await authFetch(`http://localhost:3000/tasks/${selectedTaskId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -378,7 +397,7 @@ async function generateAnalytics() {
     canvas.style.display = "none";
 
     try {
-        const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}/all`);
+        const response = await authFetch(`http://localhost:3000/tasks/all`);
         const savedTasks = await response.json();
 
         // Prepare data arrays
