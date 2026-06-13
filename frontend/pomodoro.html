@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro - Do-Do</title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -77,9 +78,9 @@
             <main>
                 <div class="pomodoro">
 
-                    <h1 id="pomodoro-timer" class="timer-display" data-duration="25">25.00</h1>
-                    <h1 id="long-break-timer" class="timer-display" data-duration="10">10.00</h1>
-                    <h1 id="short-break-timer" class="timer-display" data-duration="5">5.00</h1>
+                    <h1 id="pomodoro-timer" class="timer-display" data-duration="25">25:00</h1>
+                    <h1 id="long-break-timer" class="timer-display" data-duration="10">10:00</h1>
+                    <h1 id="short-break-timer" class="timer-display" data-duration="5">05:00</h1>
 
                 </div>
             </main>
@@ -102,7 +103,7 @@
                 <select id="soundSelect">
                     <option value="">-- Select Sound --</option>
                     <option value="sounds/rain.mp3">🌧️ Rain</option>
-                    <option value="sounds/whitenoise.mp3">🌊 White Noise</option>
+                    <option value="sounds/whiteNoise.mp3">🌊 White Noise</option>
                     <option value="sounds/lofi.mp3">🎵 Lofi Chill</option>
                 </select>
                 <button id="soundToggleBtn" class="pomodoroButton">
@@ -118,7 +119,7 @@
 
     </div>
 
-    <audio id="alarm-sound" src="src/alexis_gaming_cam-bell-notification-337658.mp3" loop></audio>
+    <audio id="alarm-sound" src="src/alarm.mp3" loop></audio>
 
 
 
@@ -160,7 +161,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="pomodoroScripts.js"></script>
     <script src="registerLoginScript.js"></script>
-    <script src="darkmode.js"></script>
+    <script src="darkMode.js"></script>
     <script src="soundPlayer.js"></script>
 
 </body>

@@ -23,13 +23,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const filterCompletedBtn = document.getElementById("filterCompleted");
 
     // 1. Get the logged-in user from the session
-    const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
+    let currentUser = null;
+    try {
+        currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
+    } catch (e) {
+        console.error("Error parsing loggedInUser from localStorage:", e);
+        localStorage.removeItem("loggedInUser");
+    }
 
     // 2. Security Check: If no user is found, kick them back to login
     if (!currentUser) {
         window.location.href = "login.html";
         return;
     }
+
+    // Wrapper around fetch that attaches the auth token and handles expired sessions
+    const authFetch = async (url, options = {}) => {
+        const token = localStorage.getItem("authToken");
+        const headers = { ...(options.headers || {}), "Authorization": `Bearer ${token}` };
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 401) {
+            localStorage.removeItem("loggedInUser");
+            localStorage.removeItem("authToken");
+            window.location.href = "login.html";
+        }
+        return response;
+    };
 
     const toggleEmptyState = () => {
         // Get me the li elements that don't have "archived" class
@@ -53,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         try {
-            const response = await fetch(`http://localhost:3000/tasks/${currentUser.id}`);
+            const response = await authFetch(`http://localhost:3000/tasks`);
             const tasks = await response.json();
             tasks.forEach(task => {
                 addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
@@ -87,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Update in database
             try {
-                await fetch(`http://localhost:3000/tasks/${taskId}`, {
+                await authFetch(`http://localhost:3000/tasks/${taskId}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -150,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Update task in database
             try {
-                await fetch(`http://localhost:3000/tasks/${li.dataset.id}`, {
+                await authFetch(`http://localhost:3000/tasks/${li.dataset.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -182,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         deleteBtn.addEventListener("click", async () => {
             try {
-                await fetch(`http://localhost:3000/tasks/${li.dataset.id}/archive`, {
+                await authFetch(`http://localhost:3000/tasks/${li.dataset.id}/archive`, {
                     method: "PUT"
                 });
 
@@ -202,11 +221,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id === null) {
             // POST new task to database
             try {
-                const response = await fetch("http://localhost:3000/tasks", {
+                const response = await authFetch("http://localhost:3000/tasks", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        user_id: currentUser.id,
                         task_name: taskText
                     })
                 });

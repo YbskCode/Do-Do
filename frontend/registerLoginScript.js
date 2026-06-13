@@ -1,11 +1,7 @@
-// --- CONFIGURATION ---
-const CORRECT_REF_CODE = 'BadiTech';
-
 // Get references to the elements using the IDs we added
 const registerForm = document.getElementById('registerForm');
 const emailInput = document.getElementById('regEmail');
 const passwordInput = document.getElementById('regPassword');
-const refCodeInput = document.getElementById('regRefCode');
 const registerButton = document.getElementById('registerBtn');
 const loginEmailInput = document.getElementById('loginEmail');
 const loginPasswordInput = document.getElementById('loginPassword');
@@ -46,22 +42,10 @@ async function handleRegistration(event) {
     const name = document.getElementById("regName").value.trim();
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
-    const refCode = refCodeInput.value.trim();
 
     // 1. Validate inputs (basic check)
-    if (email === '' || password === '' || refCode === '') {
+    if (email === '' || password === '') {
         alert('Please fill in all fields.');
-        return;
-    }
-
-    // 2. Check the Reference Code 
-    if (refCode !== CORRECT_REF_CODE) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Access Denied',
-            text: 'Invalid Reference Code. You cannot register without the correct code.',
-        });
-        refCodeInput.value = '';
         return;
     }
 
@@ -96,7 +80,6 @@ async function handleRegistration(event) {
         }).then(() => {
             emailInput.value = "";
             passwordInput.value = "";
-            refCodeInput.value = "";
             window.location.href = "login.html";
         });
     } catch (err) {
@@ -145,6 +128,9 @@ async function handleLogin(event) {
             loginPasswordInput.value = "";
             return;
         }
+
+        // Store the auth token used to authorize API requests
+        localStorage.setItem("authToken", data.token);
 
         // Store logged in user in localStorage (just for session)
         localStorage.setItem("loggedInUser", JSON.stringify({
@@ -206,8 +192,9 @@ function checkAuthentication() {
  * Handles the logout process: clears session data and redirects.
  */
 function handleLogout() {
-    // 1. Remove the logged-in user data from local storage
+    // 1. Remove the logged-in user data and auth token from local storage
     localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('authToken');
     
     // 2. Redirect the user back to the login page
     window.location.href = 'login.html';
