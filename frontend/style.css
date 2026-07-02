@@ -97,6 +97,24 @@ body
     font-size: 2rem;
 }
 
+.motivationalQuote
+{
+    font-size: 0.95rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 320px;
+    margin-top: -12px;
+    margin-bottom: 4px;
+    padding: 0 0.5rem;
+}
+
+body.dark-mode .motivationalQuote
+{
+    color: rgba(255, 255, 255, 0.75);
+}
+
 .inputArea
 {
     display: flex;
