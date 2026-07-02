@@ -55,6 +55,69 @@ db.connect((err) => {
     console.log("Connected to Do-Do database!");
 });
 
+function formatLocalDate(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function addDays(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+}
+
+function formatDbDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) {
+        return formatLocalDate(value);
+    }
+    return String(value).slice(0, 10);
+}
+
+function getEffectiveCurrentStreak(currentStreak, lastStreakDate) {
+    const lastDate = formatDbDate(lastStreakDate);
+    if (!lastDate) {
+        return 0;
+    }
+
+    const today = formatLocalDate();
+    const yesterday = formatLocalDate(addDays(new Date(), -1));
+
+    if (lastDate === today || lastDate === yesterday) {
+        return currentStreak;
+    }
+
+    return 0;
+}
+
+function getUserStreakStats(userId, res, onSuccess) {
+    db.query(
+        "SELECT current_streak, longest_streak, last_streak_date FROM users WHERE id = ?",
+        [userId],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            if (results.length === 0) {
+                res.status(404).json({ message: "User not found" });
+                return;
+            }
+
+            const user = results[0];
+            onSuccess({
+                currentStreak: getEffectiveCurrentStreak(user.current_streak, user.last_streak_date),
+                longestStreak: user.longest_streak || 0,
+                lastStreakDate: formatDbDate(user.last_streak_date)
+            });
+        }
+    );
+}
+
 // REGISTER
 app.post("/register", (req, res) => {
     const { name, email, password } = req.body;
@@ -199,6 +262,38 @@ app.get("/tasks/all", authenticateToken, (req, res) => {
     );
 });
 
+// Get focus analytics: total time across all pomodoros + per-task breakdown
+app.get("/analytics", authenticateToken, (req, res) => {
+    db.query(
+        "SELECT total_focus_minutes FROM users WHERE id = ?",
+        [req.user.id],
+        (err, userResults) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            db.query(
+                "SELECT * FROM tasks WHERE user_id = ?",
+                [req.user.id],
+                (tasksErr, tasks) => {
+                    if (tasksErr) {
+                        console.error(tasksErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+
+                    res.status(200).json({
+                        totalFocusMinutes: userResults[0]?.total_focus_minutes || 0,
+                        tasks
+                    });
+                }
+            );
+        }
+    );
+});
+
 // Post a new task for the authenticated user
 app.post("/tasks", authenticateToken, (req, res) => {
     const { task_name } = req.body;
@@ -252,6 +347,130 @@ app.put("/tasks/:id/archive", authenticateToken, (req, res) => {
                 res.status(200).json({ message: "Task archived" });
             });
     });
+});
+
+// Get streak stats and activity dates for heatmap
+app.get("/streak", authenticateToken, (req, res) => {
+    getUserStreakStats(req.user.id, res, (stats) => {
+        db.query(
+            "SELECT activity_date FROM streak_days WHERE user_id = ? ORDER BY activity_date ASC",
+            [req.user.id],
+            (err, results) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+
+                res.status(200).json({
+                    ...stats,
+                    activityDates: results.map((row) => formatDbDate(row.activity_date))
+                });
+            }
+        );
+    });
+});
+
+// Record a completed pomodoro session (counts once per day toward streak)
+app.post("/streak/complete", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const minutes = Math.max(0, parseInt(req.body.minutes, 10) || 0);
+    const today = formatLocalDate();
+    const yesterday = formatLocalDate(addDays(new Date(), -1));
+
+    function addFocusMinutes(onDone) {
+        if (minutes <= 0) {
+            onDone(null);
+            return;
+        }
+
+        db.query(
+            "UPDATE users SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ? WHERE id = ?",
+            [minutes, userId],
+            onDone
+        );
+    }
+
+    function sendStreakResponse(streakData) {
+        res.status(200).json({
+            ...streakData,
+            focusMinutesAdded: minutes
+        });
+    }
+
+    db.query(
+        "SELECT current_streak, longest_streak, last_streak_date FROM users WHERE id = ?",
+        [userId],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            if (results.length === 0) {
+                res.status(404).json({ message: "User not found" });
+                return;
+            }
+
+            const user = results[0];
+            const lastDate = formatDbDate(user.last_streak_date);
+
+            addFocusMinutes((focusErr) => {
+                if (focusErr) {
+                    console.error(focusErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+
+                if (lastDate === today) {
+                    sendStreakResponse({
+                        currentStreak: getEffectiveCurrentStreak(user.current_streak, user.last_streak_date),
+                        longestStreak: user.longest_streak || 0,
+                        alreadyRecorded: true
+                    });
+                    return;
+                }
+
+                let newStreak = 1;
+                if (lastDate === yesterday) {
+                    newStreak = (user.current_streak || 0) + 1;
+                }
+
+                const newLongest = Math.max(user.longest_streak || 0, newStreak);
+
+                db.query(
+                    "INSERT IGNORE INTO streak_days (user_id, activity_date) VALUES (?, ?)",
+                    [userId, today],
+                    (insertErr) => {
+                        if (insertErr) {
+                            console.error(insertErr);
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+
+                        db.query(
+                            "UPDATE users SET current_streak = ?, longest_streak = ?, last_streak_date = ? WHERE id = ?",
+                            [newStreak, newLongest, today, userId],
+                            (updateErr) => {
+                                if (updateErr) {
+                                    console.error(updateErr);
+                                    res.status(500).json({ message: "Database error" });
+                                    return;
+                                }
+
+                                sendStreakResponse({
+                                    currentStreak: newStreak,
+                                    longestStreak: newLongest,
+                                    alreadyRecorded: false
+                                });
+                            }
+                        );
+                    }
+                );
+            });
+        }
+    );
 });
 
 app.listen(3000, () => {

@@ -579,18 +579,256 @@ main
 
 .taskSelectorContainer
 {
-    grid-column: 1;
     justify-self: flex-end;
-    margin-right: 30px;
     background-color: rgb(255, 255, 255, 0.2);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 20px;
     border-radius: 15px;
-    width: 80%;
-    max-width: 300px;
+    width: 100%;
     text-align: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.pomodoroLeftPanel
+{
+    grid-column: 1;
+    justify-self: flex-end;
+    margin-right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 80%;
+    max-width: 300px;
+}
+
+.streakContainer
+{
+    background-color: rgb(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 20px;
+    border-radius: 15px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.streakSummary
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 14px;
+}
+
+.streakIcon
+{
+    font-size: 1.8rem;
+    background: linear-gradient(180deg, #ffe066 0%, #ff9500 45%, #ff4500 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 6px rgba(255, 120, 0, 0.85))
+            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.streakCount
+{
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+}
+
+.streakLabel
+{
+    font-size: 0.95rem;
+    color: #e0e0e0;
+    letter-spacing: 0.5px;
+}
+
+.streakDetailsBtn
+{
+    width: 100%;
+    padding: 10px 16px;
+}
+
+.streakModalContent
+{
+    max-width: 720px;
+}
+
+.heatmapSection
+{
+    margin-top: 10px;
+}
+
+.heatmapSection h3
+{
+    font-size: 1rem;
+    color: #e0e0e0;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.heatmapLegend
+{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #cfcfcf;
+    margin-bottom: 10px;
+}
+
+.heatmapCalendar
+{
+    position: relative;
+    width: 100%;
+}
+
+.heatmapCalendarInner
+{
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.heatmapDayLabels
+{
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 18px;
+    flex-shrink: 0;
+}
+
+.heatmapDayLabels span
+{
+    height: 12px;
+    line-height: 12px;
+    font-size: 0.65rem;
+    color: #cfcfcf;
+}
+
+.heatmapMain
+{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.heatmapMonthLabels
+{
+    display: flex;
+    gap: 3px;
+    height: 16px;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.heatmapMonthCell
+{
+    width: 12px;
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #cfcfcf;
+    position: relative;
+}
+
+.heatmapMonthCell.hasLabel span
+{
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.streakHeatmap
+{
+    display: flex;
+    gap: 3px;
+}
+
+.heatmapWeek
+{
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.heatmapCell
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.heatmapCell.inRange
+{
+    cursor: pointer;
+}
+
+.heatmapCell.inRange:hover
+{
+    outline: 1px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 1px;
+}
+
+.heatmapCell.heatmapLevel0
+{
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.heatmapCell.heatmapLevel1,
+.heatmapCell.active
+{
+    background: rgb(222, 134, 124);
+    border-color: rgb(222, 134, 124);
+}
+
+.heatmapCell.outOfRange
+{
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.heatmapInfoCard
+{
+    position: fixed;
+    z-index: 20000;
+    pointer-events: none;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+}
+
+.heatmapInfoCard strong
+{
+    display: block;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.heatmapInfoCard span
+{
+    color: #cfcfcf;
+    font-size: 0.78rem;
 }
 
 .taskSelectorContainer label
@@ -794,7 +1032,8 @@ body.dark-mode .todoApp,
 body.dark-mode .directingDiv,
 body.dark-mode .pomodoroApp,
 body.dark-mode .taskSelectorContainer,
-body.dark-mode .analyticsContainer {
+body.dark-mode .analyticsContainer,
+body.dark-mode .streakContainer {
     background: rgba(0, 0, 0, 0.4);
     border-color: rgba(255, 255, 255, 0.1);
 }

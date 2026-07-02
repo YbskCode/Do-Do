@@ -5,7 +5,19 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    current_streak INT DEFAULT 0,
+    longest_streak INT DEFAULT 0,
+    last_streak_date DATE NULL,
+    total_focus_minutes INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS streak_days (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    activity_date DATE NOT NULL,
+    UNIQUE KEY unique_user_date (user_id, activity_date),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
