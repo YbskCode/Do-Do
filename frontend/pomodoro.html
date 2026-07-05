@@ -13,13 +13,8 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
-        #long-break-timer,
-        #short-break-timer {
+        #break-timer {
             display: none;
-        }
-
-        #pomodoro-timer {
-            display: block;
         }
     </style>
 
@@ -30,12 +25,12 @@
 
 
 
-    <button id="goBackBtn" class="go-back-btn">
+    <button id="goBackBtn" class="go-back-btn focus-mode-hide">
         <i class="fa-solid fa-arrow-left"></i>
     </button>
 
 
-    <div class="header-auth-container">
+    <div class="header-auth-container focus-mode-hide">
         <div class="header-auth">
             <p id="userEmailDisplay" class="user-info"></p>
             <button id="darkModeBtn" class="darkModeBtn">
@@ -52,7 +47,13 @@
     <div class="container pomodoroContainer">
 
         <div class="pomodoroLeftPanel">
-            <div class="streakContainer">
+            <div class="focusModeContainer">
+                <button type="button" id="focusModeBtn" class="pomodoroButton focusModeBtn">
+                    <i class="fa-solid fa-bullseye"></i> Focus Mode
+                </button>
+            </div>
+
+            <div class="streakContainer focus-mode-hide">
                 <div class="streakSummary">
                     <i class="fa-solid fa-fire streakIcon"></i>
                     <p class="streakCount" id="currentStreakDisplay">0</p>
@@ -63,7 +64,7 @@
                 </button>
             </div>
 
-            <div class="taskSelectorContainer">
+            <div class="taskSelectorContainer focus-mode-content">
                 <label for="activeTaskSelect">Working on:</label>
                 <select id="activeTaskSelect">
                     <option value="">-- No Task Selected --</option>
@@ -75,31 +76,31 @@
             </div>
         </div>
 
-        <div class="todoApp pomodoroApp">
+        <div class="todoApp pomodoroApp focus-mode-content">
 
-            <h1>Pomodoro</h1>
-            <p id="motivationalQuote" class="motivationalQuote"></p>
+            <h1 class="focus-mode-hide">Pomodoro</h1>
+            <p id="motivationalQuote" class="motivationalQuote focus-mode-content"></p>
 
-            <div class="buttonContainer">
+            <div class="buttonContainer focus-mode-content">
                 <button class="pomodoroButton activeFilter" id="pomodoro-session"
                     data-target-id="pomodoro-timer">Pomodoro</button>
-                <button class="pomodoroButton" id="short-break-session" data-target-id="short-break-timer">Short
-                    Break</button>
-                <button class="pomodoroButton" id="long-break-session" data-target-id="long-break-timer">Long
-                    Break</button>
+                <button class="pomodoroButton" id="break-session" data-target-id="break-timer">Break</button>
             </div>
 
-            <main>
-                <div class="pomodoro">
-
-                    <h1 id="pomodoro-timer" class="timer-display" data-duration="1">01:00</h1>
-                    <h1 id="long-break-timer" class="timer-display" data-duration="10">10:00</h1>
-                    <h1 id="short-break-timer" class="timer-display" data-duration="5">05:00</h1>
-
+            <main class="focus-mode-content">
+                <div class="pomodoro focus-mode-content">
+                    <div class="timerRow focus-mode-content">
+                        <h1 id="pomodoro-timer" class="timer-display" data-duration="25">25:00</h1>
+                        <h1 id="break-timer" class="timer-display" data-duration="5" style="display: none;">05:00</h1>
+                        <button type="button" id="editDurationBtn" class="timerEditBtn focus-mode-content"
+                            title="Edit duration" aria-label="Edit duration">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                    </div>
                 </div>
             </main>
 
-            <div class="buttons">
+            <div class="buttons focus-mode-content">
                 <button class="pomodoroButton start-stop-btn" id="start">START</button>
                 <button class="pomodoroButton start-stop-btn" id="stop">STOP</button>
                 <button id="stop-alarm-btn" class="pomodoroButton start-stop-btn" style="display: none;">
@@ -109,10 +110,10 @@
 
         </div>
 
-        <div class="analyticsContainer">
+        <div class="analyticsContainer focus-mode-content">
 
             <!-- Nature Sounds -->
-            <div class="soundContainer">
+            <div class="soundContainer focus-mode-content">
                 <label>Nature Sounds</label>
                 <select id="soundSelect">
                     <option value="">-- Select Sound --</option>
@@ -125,8 +126,8 @@
                 </button>
             </div>
 
-            <label for="activeTaskSelect">Show Analytics</label>
-            <button id="openAnalyticsBtn" class="pomodoroButton analyticsButton">
+            <label for="activeTaskSelect" class="focus-mode-hide">Show Analytics</label>
+            <button id="openAnalyticsBtn" class="pomodoroButton analyticsButton focus-mode-hide">
                 <i class="fa-solid fa-chart-simple"></i>
             </button>
         </div>
@@ -134,6 +135,25 @@
     </div>
 
     <audio id="alarm-sound" src="src/alarm.mp3" loop></audio>
+
+    <div id="durationModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent durationModalContent">
+            <button id="closeDurationBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 id="durationModalTitle">Edit Pomodoro</h2>
+
+            <div class="durationModalBody">
+                <div class="durationInputRow">
+                    <input type="number" id="durationModalInput" min="25" step="1" aria-label="Duration in minutes">
+                    <span class="durationUnit">min</span>
+                </div>
+                <p id="durationModalError" class="durationModalError" style="display: none;"></p>
+                <button type="button" id="saveDurationBtn" class="pomodoroButton durationSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
 
 
 

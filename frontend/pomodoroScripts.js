@@ -46,6 +46,144 @@ let endTime = null;
 let currentTimerElement = document.getElementById('pomodoro-timer');
 let timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
 
+const POMODORO_MIN_MINUTES = 25;
+const BREAK_MIN_MINUTES = 5;
+const POMODORO_DURATION_KEY = 'pomodoroDurationMinutes';
+const BREAK_DURATION_KEY = 'breakDurationMinutes';
+
+const editDurationBtn = document.getElementById('editDurationBtn');
+const durationModal = document.getElementById('durationModal');
+const durationModalTitle = document.getElementById('durationModalTitle');
+const durationModalInput = document.getElementById('durationModalInput');
+const durationModalError = document.getElementById('durationModalError');
+const closeDurationBtn = document.getElementById('closeDurationBtn');
+const saveDurationBtn = document.getElementById('saveDurationBtn');
+
+function getMinDurationForTimer(timerId) {
+    return timerId === 'pomodoro-timer' ? POMODORO_MIN_MINUTES : BREAK_MIN_MINUTES;
+}
+
+function getStorageKeyForTimer(timerId) {
+    return timerId === 'pomodoro-timer' ? POMODORO_DURATION_KEY : BREAK_DURATION_KEY;
+}
+
+function clampDuration(minutes, timerId) {
+    const min = getMinDurationForTimer(timerId);
+    const parsed = parseInt(minutes, 10);
+    if (Number.isNaN(parsed)) return min;
+    return Math.max(min, parsed);
+}
+
+function setTimerDuration(timerId, minutes) {
+    const timerEl = document.getElementById(timerId);
+    if (!timerEl) return;
+
+    const validMinutes = clampDuration(minutes, timerId);
+    timerEl.dataset.duration = validMinutes;
+    localStorage.setItem(getStorageKeyForTimer(timerId), validMinutes);
+
+    if (currentTimerElement.id === timerId && !isRunning) {
+        timeLeft = validMinutes * 60;
+        updateDisplay(timeLeft);
+    }
+}
+
+function loadSavedDurations() {
+    const savedPomodoro = localStorage.getItem(POMODORO_DURATION_KEY);
+    const savedBreak = localStorage.getItem(BREAK_DURATION_KEY);
+
+    setTimerDuration('pomodoro-timer', savedPomodoro ?? POMODORO_MIN_MINUTES);
+    setTimerDuration('break-timer', savedBreak ?? BREAK_MIN_MINUTES);
+}
+
+function hideDurationModalError() {
+    if (!durationModalError) return;
+    durationModalError.style.display = 'none';
+    durationModalError.textContent = '';
+}
+
+function showDurationModalError(message) {
+    if (!durationModalError) return;
+    durationModalError.textContent = message;
+    durationModalError.style.display = 'block';
+}
+
+function openDurationModal() {
+    if (!durationModal || !durationModalInput || isRunning) return;
+
+    const isPomodoro = currentTimerElement.id === 'pomodoro-timer';
+    const min = getMinDurationForTimer(currentTimerElement.id);
+    const currentMinutes = parseInt(currentTimerElement.dataset.duration, 10);
+
+    if (durationModalTitle) {
+        durationModalTitle.textContent = isPomodoro ? 'Edit Pomodoro' : 'Edit Break';
+    }
+
+    durationModalInput.min = min;
+    durationModalInput.value = currentMinutes;
+    hideDurationModalError();
+    durationModal.style.display = 'flex';
+    durationModalInput.focus();
+    durationModalInput.select();
+}
+
+function closeDurationModal() {
+    if (!durationModal) return;
+    durationModal.style.display = 'none';
+    hideDurationModalError();
+}
+
+function saveDurationFromModal() {
+    if (!durationModalInput || isRunning) return;
+
+    const min = getMinDurationForTimer(currentTimerElement.id);
+    const entered = parseInt(durationModalInput.value, 10);
+
+    if (Number.isNaN(entered) || entered < min) {
+        showDurationModalError(`Minimum ${min} minutes`);
+        return;
+    }
+
+    setTimerDuration(currentTimerElement.id, entered);
+    closeDurationModal();
+}
+
+function setEditDurationEnabled(enabled) {
+    if (editDurationBtn) {
+        editDurationBtn.disabled = !enabled;
+    }
+}
+
+loadSavedDurations();
+
+if (editDurationBtn) {
+    editDurationBtn.addEventListener('click', openDurationModal);
+}
+
+if (closeDurationBtn) {
+    closeDurationBtn.addEventListener('click', closeDurationModal);
+}
+
+if (saveDurationBtn) {
+    saveDurationBtn.addEventListener('click', saveDurationFromModal);
+}
+
+if (durationModal) {
+    durationModal.addEventListener('click', (e) => {
+        if (e.target === durationModal) {
+            closeDurationModal();
+        }
+    });
+}
+
+if (durationModalInput) {
+    durationModalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            saveDurationFromModal();
+        }
+    });
+}
+
 
 //Load tasks into the dropdown
 async function loadTasksIntoDropdown() {
@@ -176,6 +314,8 @@ function stopTimer() {
     stopButton.disabled = true;
     stopButton.style.opacity = "0.5";
     stopButton.style.pointerEvents = "none";
+
+    setEditDurationEnabled(true);
 }
 
 
@@ -273,6 +413,8 @@ function startCountdown() {
     stopButton.style.opacity = "1";
     stopButton.style.pointerEvents = "auto";
 
+    setEditDurationEnabled(false);
+
     // Start the interval
     timerInterval = setInterval(countdown, 1000);
 }
@@ -297,7 +439,7 @@ function dismissAlarm() {
     // 5. Reset the timer value (rewind the clock)
     timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
     updateDisplay(timeLeft);
-    //
+    setEditDurationEnabled(true);
 }
 
 // --- Event Handlers ---
@@ -508,8 +650,7 @@ async function generateAnalytics() {
 
 // Activated Timer
 const pomodoroTimerBtn = document.getElementById("pomodoro-session");
-const shortBreakBtn = document.getElementById("short-break-session");
-const longBreakBtn = document.getElementById("long-break-session");
+const breakBtn = document.getElementById("break-session");
 
 const activeTimerBtn = (clickedButton) => {
 
@@ -520,10 +661,9 @@ const activeTimerBtn = (clickedButton) => {
     clickedButton.classList.add("activeFilter");
 }
 
-if (pomodoroTimerBtn && shortBreakBtn && longBreakBtn) {
+if (pomodoroTimerBtn && breakBtn) {
     pomodoroTimerBtn.addEventListener("click", () => activeTimerBtn(pomodoroTimerBtn));
-    shortBreakBtn.addEventListener("click", () => activeTimerBtn(shortBreakBtn));
-    longBreakBtn.addEventListener("click", () => activeTimerBtn(longBreakBtn));
+    breakBtn.addEventListener("click", () => activeTimerBtn(breakBtn));
 }
 
 // --- Streak Feature ---
@@ -820,3 +960,38 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 });
+
+// --- Focus Mode ---
+const focusModeBtn = document.getElementById("focusModeBtn");
+const focusModeContainer = document.querySelector(".focusModeContainer");
+const pomodoroLeftPanel = document.querySelector(".pomodoroLeftPanel");
+const FOCUS_MODE_KEY = "pomodoroFocusMode";
+
+function setFocusMode(enabled) {
+    document.body.classList.toggle("focus-mode", enabled);
+    localStorage.setItem(FOCUS_MODE_KEY, enabled ? "true" : "false");
+
+    if (focusModeContainer && pomodoroLeftPanel) {
+        if (enabled) {
+            document.body.appendChild(focusModeContainer);
+        } else {
+            pomodoroLeftPanel.insertBefore(focusModeContainer, pomodoroLeftPanel.firstChild);
+        }
+    }
+
+    if (focusModeBtn) {
+        focusModeBtn.innerHTML = enabled
+            ? '<i class="fa-solid fa-xmark"></i> Exit Focus Mode'
+            : '<i class="fa-solid fa-bullseye"></i> Focus Mode';
+    }
+}
+
+if (focusModeBtn) {
+    focusModeBtn.addEventListener("click", () => {
+        setFocusMode(!document.body.classList.contains("focus-mode"));
+    });
+
+    if (localStorage.getItem(FOCUS_MODE_KEY) === "true") {
+        setFocusMode(true);
+    }
+}
