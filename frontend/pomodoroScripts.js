@@ -341,7 +341,6 @@ function showOnly(targetElementId) {
         // 4. Reset timeLeft to the new timer's initial duration
         timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
         updateDisplay(timeLeft);
-
     }
 }
 
