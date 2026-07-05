@@ -13,13 +13,8 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
-        #long-break-timer,
-        #short-break-timer {
+        #break-timer {
             display: none;
-        }
-
-        #pomodoro-timer {
-            display: block;
         }
     </style>
 
@@ -83,19 +78,19 @@
             <div class="buttonContainer">
                 <button class="pomodoroButton activeFilter" id="pomodoro-session"
                     data-target-id="pomodoro-timer">Pomodoro</button>
-                <button class="pomodoroButton" id="short-break-session" data-target-id="short-break-timer">Short
-                    Break</button>
-                <button class="pomodoroButton" id="long-break-session" data-target-id="long-break-timer">Long
-                    Break</button>
+                <button class="pomodoroButton" id="break-session" data-target-id="break-timer">Break</button>
             </div>
 
             <main>
                 <div class="pomodoro">
-
-                    <h1 id="pomodoro-timer" class="timer-display" data-duration="1">01:00</h1>
-                    <h1 id="long-break-timer" class="timer-display" data-duration="10">10:00</h1>
-                    <h1 id="short-break-timer" class="timer-display" data-duration="5">05:00</h1>
-
+                    <div class="timerRow">
+                        <h1 id="pomodoro-timer" class="timer-display" data-duration="25">25:00</h1>
+                        <h1 id="break-timer" class="timer-display" data-duration="5" style="display: none;">05:00</h1>
+                        <button type="button" id="editDurationBtn" class="timerEditBtn" title="Edit duration"
+                            aria-label="Edit duration">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                    </div>
                 </div>
             </main>
 
@@ -134,6 +129,25 @@
     </div>
 
     <audio id="alarm-sound" src="src/alarm.mp3" loop></audio>
+
+    <div id="durationModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent durationModalContent">
+            <button id="closeDurationBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 id="durationModalTitle">Edit Pomodoro</h2>
+
+            <div class="durationModalBody">
+                <div class="durationInputRow">
+                    <input type="number" id="durationModalInput" min="25" step="1" aria-label="Duration in minutes">
+                    <span class="durationUnit">min</span>
+                </div>
+                <p id="durationModalError" class="durationModalError" style="display: none;"></p>
+                <button type="button" id="saveDurationBtn" class="pomodoroButton durationSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
 
 
 
