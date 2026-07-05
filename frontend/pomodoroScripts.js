@@ -959,3 +959,38 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 });
+
+// --- Focus Mode ---
+const focusModeBtn = document.getElementById("focusModeBtn");
+const focusModeContainer = document.querySelector(".focusModeContainer");
+const pomodoroLeftPanel = document.querySelector(".pomodoroLeftPanel");
+const FOCUS_MODE_KEY = "pomodoroFocusMode";
+
+function setFocusMode(enabled) {
+    document.body.classList.toggle("focus-mode", enabled);
+    localStorage.setItem(FOCUS_MODE_KEY, enabled ? "true" : "false");
+
+    if (focusModeContainer && pomodoroLeftPanel) {
+        if (enabled) {
+            document.body.appendChild(focusModeContainer);
+        } else {
+            pomodoroLeftPanel.insertBefore(focusModeContainer, pomodoroLeftPanel.firstChild);
+        }
+    }
+
+    if (focusModeBtn) {
+        focusModeBtn.innerHTML = enabled
+            ? '<i class="fa-solid fa-xmark"></i> Exit Focus Mode'
+            : '<i class="fa-solid fa-bullseye"></i> Focus Mode';
+    }
+}
+
+if (focusModeBtn) {
+    focusModeBtn.addEventListener("click", () => {
+        setFocusMode(!document.body.classList.contains("focus-mode"));
+    });
+
+    if (localStorage.getItem(FOCUS_MODE_KEY) === "true") {
+        setFocusMode(true);
+    }
+}

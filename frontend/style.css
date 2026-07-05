@@ -64,6 +64,8 @@ body
     padding: 80px 20px 0px 20px;
     width: 100%;
     height: 100vh;
+    position: relative;
+    z-index: 1;
 }
 
 .pomodoroContainer
@@ -773,6 +775,220 @@ main
     padding: 10px 16px;
 }
 
+/* Focus Mode */
+.focusModeContainer
+{
+    background-color: rgb(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 16px;
+    border-radius: 15px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode .focusModeContainer
+{
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+#focusModeBtn.focusModeBtn,
+#focusModeBtn.focusModeBtn i
+{
+    color: #ffffff !important;
+}
+
+#focusModeBtn.focusModeBtn
+{
+    width: 100%;
+    padding: 10px 16px;
+    gap: 8px;
+    flex-grow: 0;
+    background-color: rgb(222, 134, 124) !important;
+    border: 2px solid rgba(255, 255, 255, 0.35) !important;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    opacity: 1 !important;
+}
+
+#focusModeBtn.focusModeBtn:hover
+{
+    background-color: #d15656 !important;
+    transform: scale(1.05);
+}
+
+#focusModeBtn.focusModeBtn:focus-visible
+{
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+.focus-mode-hide
+{
+    transition: opacity 0.45s ease, transform 0.45s ease, max-height 0.45s ease,
+        margin 0.45s ease, padding 0.45s ease, visibility 0.45s ease;
+    max-height: 600px;
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+body.focus-mode .focus-mode-hide
+{
+    opacity: 0;
+    transform: translateX(-10px);
+    max-height: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.focus-mode-content
+{
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+body.focus-mode .focus-mode-content
+{
+    animation: none;
+}
+
+@keyframes focusModeFadeIn
+{
+    from
+    {
+        opacity: 0;
+    }
+    to
+    {
+        opacity: 1;
+    }
+}
+
+@keyframes focusModeFadeInCenter
+{
+    from
+    {
+        opacity: 0;
+    }
+    to
+    {
+        opacity: 1;
+    }
+}
+
+@keyframes focusModeFadeInRight
+{
+    from
+    {
+        opacity: 0;
+    }
+    to
+    {
+        opacity: 1;
+    }
+}
+
+body.focus-mode .pomodoroContainer
+{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 72px 2rem 2rem;
+    min-height: 100vh;
+}
+
+body.focus-mode .pomodoroLeftPanel
+{
+    grid-column: unset;
+    justify-self: center;
+    margin: 0;
+    width: auto;
+    max-width: 280px;
+    flex: 0 1 260px;
+    order: 1;
+    animation: focusModeFadeIn 0.6s ease both;
+}
+
+body.focus-mode .pomodoroApp
+{
+    grid-column: unset;
+    order: 2;
+    max-width: 420px;
+    width: auto;
+    flex: 0 1 420px;
+    animation: focusModeFadeInCenter 0.6s ease 0.1s both;
+}
+
+body.focus-mode .analyticsContainer
+{
+    grid-column: unset;
+    justify-self: center;
+    margin: 0;
+    width: auto;
+    max-width: 280px;
+    flex: 0 1 260px;
+    order: 3;
+    animation: focusModeFadeInRight 0.6s ease 0.15s both;
+}
+
+body.focus-mode .focusModeContainer
+{
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    left: auto;
+    width: auto;
+    z-index: 10000;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    animation: focusModeFadeIn 0.5s ease both;
+}
+
+body.focus-mode #focusModeBtn.focusModeBtn
+{
+    position: static;
+    width: auto;
+    min-width: max-content;
+    white-space: nowrap;
+    flex-grow: 0;
+    z-index: auto;
+    margin: 0;
+    padding: 10px 18px;
+    background-color: rgb(222, 134, 124) !important;
+    border: 2px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+body.focus-mode #focusModeBtn.focusModeBtn:hover
+{
+    background-color: #d15656 !important;
+    transform: scale(1.05);
+}
+
+body.focus-mode .soundContainer
+{
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+body.focus-mode .taskSelectorContainer
+{
+    text-align: center;
+}
+
 .streakModalContent
 {
     max-width: 720px;
@@ -1151,7 +1367,8 @@ body.dark-mode .directingDiv,
 body.dark-mode .pomodoroApp,
 body.dark-mode .taskSelectorContainer,
 body.dark-mode .analyticsContainer,
-body.dark-mode .streakContainer {
+body.dark-mode .streakContainer,
+body.dark-mode .focusModeContainer {
     background: rgba(0, 0, 0, 0.4);
     border-color: rgba(255, 255, 255, 0.1);
 }
