@@ -316,6 +316,10 @@ function stopTimer() {
     stopButton.style.pointerEvents = "none";
 
     setEditDurationEnabled(true);
+
+    if (typeof DoDoPresence !== "undefined") {
+        DoDoPresence.syncFromTimer(false, currentTimerElement?.id);
+    }
 }
 
 
@@ -413,6 +417,11 @@ function startCountdown() {
     stopButton.style.pointerEvents = "auto";
 
     setEditDurationEnabled(false);
+
+    if (typeof DoDoPresence !== "undefined") {
+        const taskName = taskSelect?.selectedOptions?.[0]?.textContent?.trim() || null;
+        DoDoPresence.syncFromTimer(true, currentTimerElement.id, endTime, taskName);
+    }
 
     // Start the interval
     timerInterval = setInterval(countdown, 1000);
@@ -993,4 +1002,8 @@ if (focusModeBtn) {
     if (localStorage.getItem(FOCUS_MODE_KEY) === "true") {
         setFocusMode(true);
     }
+}
+
+if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken")) {
+    DoDoPresence.startHeartbeat();
 }

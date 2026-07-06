@@ -10,6 +10,7 @@ const loginButton = document.getElementById('loginBtn');
 //For directing.html
 const todoBtn = document.querySelector('.directingButton:nth-of-type(1)'); // First button
 const pomodoroBtn = document.querySelector('.directingButton:nth-of-type(2)'); // Second button
+const buddiesBtn = document.getElementById('buddiesBtn');
 
 if (todoBtn) {
     todoBtn.addEventListener('click', () => {
@@ -20,6 +21,20 @@ if (todoBtn) {
 if (pomodoroBtn) {
     pomodoroBtn.addEventListener('click', () => {
         window.location.href = 'pomodoro.html'; // Or whatever your Pomodoro HTML file is named
+    });
+}
+
+if (buddiesBtn) {
+    buddiesBtn.addEventListener('click', () => {
+        window.location.href = 'buddies.html';
+    });
+}
+
+if (typeof DoDoPresence !== "undefined") {
+    document.addEventListener("DOMContentLoaded", () => {
+        if (localStorage.getItem("authToken")) {
+            DoDoPresence.startHeartbeat();
+        }
     });
 }
 //For directing.html

@@ -1460,3 +1460,212 @@ body.dark-mode .inputArea input {
     opacity: 0.5 !important;
     pointer-events: none;
 }
+
+/* Study Buddies */
+.buddies-container {
+    width: 100%;
+    max-width: 560px;
+    padding: 5rem 1.25rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.buddies-title {
+    color: white;
+    text-align: center;
+    font-size: 2rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.buddies-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 16px;
+    padding: 1.25rem;
+    color: white;
+}
+
+.buddies-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.85rem;
+    font-weight: 600;
+}
+
+.buddies-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+}
+
+.buddies-card-header h2 {
+    margin-bottom: 0;
+}
+
+.buddy-refresh-hint {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.add-buddy-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.add-buddy-form input {
+    flex: 1;
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-family: "Jost", sans-serif;
+}
+
+.add-buddy-form input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.add-buddy-form button,
+.privacy-save-btn,
+.buddy-accept-btn,
+.buddy-decline-btn {
+    padding: 0.65rem 1rem;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: "Jost", sans-serif;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.add-buddy-form button,
+.privacy-save-btn {
+    background: #E07951;
+    color: white;
+}
+
+.add-buddy-form button:hover,
+.privacy-save-btn:hover {
+    background: #c8653f;
+}
+
+.buddy-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.buddy-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.buddy-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.buddy-info strong {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.buddy-email {
+    display: block;
+    font-size: 0.78rem;
+    opacity: 0.75;
+}
+
+.buddy-status-text {
+    display: block;
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.buddy-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.buddy-status--offline { background: #9ca3af; }
+.buddy-status--online { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.6); }
+.buddy-status--focusing { background: #E07951; box-shadow: 0 0 8px rgba(224, 121, 81, 0.7); }
+.buddy-status--on_break { background: #3b82f6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.6); }
+
+.buddy-request-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.buddy-accept-btn {
+    background: #22c55e;
+    color: white;
+}
+
+.buddy-decline-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.buddy-remove-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    padding: 0.45rem 0.55rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.buddy-remove-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+    color: #fecaca;
+}
+
+.buddy-empty {
+    text-align: center;
+    opacity: 0.75;
+    padding: 1rem 0.5rem;
+}
+
+.privacy-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.privacy-save-btn {
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+body.dark-mode .buddies-card {
+    background: rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .buddy-item {
+    background: rgba(0, 0, 0, 0.25);
+}

@@ -473,6 +473,346 @@ app.post("/streak/complete", authenticateToken, (req, res) => {
     );
 });
 
+// --- Study Buddies ---
+
+const PRESENCE_OFFLINE_AFTER_MS = 2 * 60 * 1000;
+const VALID_PRESENCE_STATUSES = new Set(["offline", "online", "focusing", "on_break"]);
+
+function resolveEffectivePresence(presenceRow, privacyRow) {
+    if (!presenceRow || !privacyRow?.show_presence) {
+        return {
+            status: "offline",
+            currentTaskName: null,
+            sessionEndsAt: null,
+            lastSeenAt: presenceRow?.last_seen_at || null
+        };
+    }
+
+    const lastSeen = presenceRow.last_seen_at ? new Date(presenceRow.last_seen_at).getTime() : 0;
+    const isStale = !lastSeen || Date.now() - lastSeen > PRESENCE_OFFLINE_AFTER_MS;
+
+    if (isStale) {
+        return {
+            status: "offline",
+            currentTaskName: null,
+            sessionEndsAt: null,
+            lastSeenAt: presenceRow.last_seen_at
+        };
+    }
+
+    return {
+        status: presenceRow.status || "offline",
+        currentTaskName: privacyRow.show_task_name ? presenceRow.current_task_name : null,
+        sessionEndsAt: presenceRow.session_ends_at,
+        lastSeenAt: presenceRow.last_seen_at
+    };
+}
+
+function findFriendshipBetween(userA, userB, callback) {
+    db.query(
+        `SELECT * FROM friendships
+         WHERE (requester_id = ? AND addressee_id = ?)
+            OR (requester_id = ? AND addressee_id = ?)
+         LIMIT 1`,
+        [userA, userB, userB, userA],
+        callback
+    );
+}
+
+// List accepted study buddies with presence
+app.get("/buddies", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+
+    db.query(
+        `SELECT
+            f.id AS friendship_id,
+            u.id,
+            u.name,
+            u.email,
+            u.show_presence,
+            u.show_task_name,
+            p.status,
+            p.current_task_name,
+            p.session_ends_at,
+            p.last_seen_at
+         FROM friendships f
+         JOIN users u ON u.id = IF(f.requester_id = ?, f.addressee_id, f.requester_id)
+         LEFT JOIN user_presence p ON p.user_id = u.id
+         WHERE f.status = 'accepted'
+           AND (f.requester_id = ? OR f.addressee_id = ?)
+         ORDER BY u.name ASC`,
+        [userId, userId, userId],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            const buddies = results.map((row) => {
+                const presence = resolveEffectivePresence(
+                    {
+                        status: row.status,
+                        current_task_name: row.current_task_name,
+                        session_ends_at: row.session_ends_at,
+                        last_seen_at: row.last_seen_at
+                    },
+                    { show_presence: row.show_presence, show_task_name: row.show_task_name }
+                );
+
+                return {
+                    id: row.id,
+                    name: row.name,
+                    email: row.email,
+                    friendshipId: row.friendship_id,
+                    ...presence
+                };
+            });
+
+            res.status(200).json(buddies);
+        }
+    );
+});
+
+// Incoming friend requests
+app.get("/buddies/requests", authenticateToken, (req, res) => {
+    db.query(
+        `SELECT f.id, f.created_at, u.id AS userId, u.name, u.email
+         FROM friendships f
+         JOIN users u ON u.id = f.requester_id
+         WHERE f.addressee_id = ? AND f.status = 'pending'
+         ORDER BY f.created_at DESC`,
+        [req.user.id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            res.status(200).json(results);
+        }
+    );
+});
+
+// Send friend request by email
+app.post("/buddies/request", authenticateToken, (req, res) => {
+    const requesterId = req.user.id;
+    const email = (req.body.email || "").trim().toLowerCase();
+
+    if (!email) {
+        res.status(400).json({ message: "Email is required" });
+        return;
+    }
+
+    if (email === req.user.email.toLowerCase()) {
+        res.status(400).json({ message: "You cannot add yourself as a buddy" });
+        return;
+    }
+
+    db.query("SELECT id, name, email FROM users WHERE email = ?", [email], (err, results) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+
+        if (results.length === 0) {
+            res.status(404).json({ message: "No user found with that email" });
+            return;
+        }
+
+        const addressee = results[0];
+
+        findFriendshipBetween(requesterId, addressee.id, (friendErr, friendships) => {
+            if (friendErr) {
+                console.error(friendErr);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            if (friendships.length > 0) {
+                const existing = friendships[0];
+                if (existing.status === "accepted") {
+                    res.status(400).json({ message: "You are already study buddies" });
+                    return;
+                }
+                if (existing.status === "pending") {
+                    res.status(400).json({ message: "A friend request is already pending" });
+                    return;
+                }
+            }
+
+            db.query(
+                "INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, 'pending')",
+                [requesterId, addressee.id],
+                (insertErr) => {
+                    if (insertErr) {
+                        console.error(insertErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    res.status(201).json({ message: "Friend request sent!", user: addressee });
+                }
+            );
+        });
+    });
+});
+
+// Accept friend request
+app.put("/buddies/requests/:id/accept", authenticateToken, (req, res) => {
+    const requestId = req.params.id;
+
+    db.query(
+        "SELECT * FROM friendships WHERE id = ? AND addressee_id = ? AND status = 'pending'",
+        [requestId, req.user.id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (results.length === 0) {
+                res.status(404).json({ message: "Friend request not found" });
+                return;
+            }
+
+            db.query(
+                "UPDATE friendships SET status = 'accepted' WHERE id = ?",
+                [requestId],
+                (updateErr) => {
+                    if (updateErr) {
+                        console.error(updateErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    res.status(200).json({ message: "Friend request accepted!" });
+                }
+            );
+        }
+    );
+});
+
+// Decline friend request
+app.put("/buddies/requests/:id/decline", authenticateToken, (req, res) => {
+    const requestId = req.params.id;
+
+    db.query(
+        "UPDATE friendships SET status = 'declined' WHERE id = ? AND addressee_id = ? AND status = 'pending'",
+        [requestId, req.user.id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (results.affectedRows === 0) {
+                res.status(404).json({ message: "Friend request not found" });
+                return;
+            }
+            res.status(200).json({ message: "Friend request declined" });
+        }
+    );
+});
+
+// Remove a study buddy
+app.delete("/buddies/:userId", authenticateToken, (req, res) => {
+    const buddyId = parseInt(req.params.userId, 10);
+    const userId = req.user.id;
+
+    db.query(
+        `DELETE FROM friendships
+         WHERE status = 'accepted'
+           AND ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))`,
+        [userId, buddyId, buddyId, userId],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (results.affectedRows === 0) {
+                res.status(404).json({ message: "Study buddy not found" });
+                return;
+            }
+            res.status(200).json({ message: "Study buddy removed" });
+        }
+    );
+});
+
+// Update own presence
+app.put("/presence", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const status = req.body.status;
+    const currentTaskName = req.body.currentTaskName || null;
+    const sessionEndsAt = req.body.sessionEndsAt || null;
+
+    if (!VALID_PRESENCE_STATUSES.has(status)) {
+        res.status(400).json({ message: "Invalid presence status" });
+        return;
+    }
+
+    db.query(
+        `INSERT INTO user_presence (user_id, status, current_task_name, session_ends_at, last_seen_at)
+         VALUES (?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE
+            status = VALUES(status),
+            current_task_name = VALUES(current_task_name),
+            session_ends_at = VALUES(session_ends_at),
+            last_seen_at = NOW()`,
+        [userId, status, currentTaskName, sessionEndsAt],
+        (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            res.status(200).json({ message: "Presence updated" });
+        }
+    );
+});
+
+// Get privacy settings
+app.get("/presence/settings", authenticateToken, (req, res) => {
+    db.query(
+        "SELECT show_presence, show_task_name FROM users WHERE id = ?",
+        [req.user.id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (results.length === 0) {
+                res.status(404).json({ message: "User not found" });
+                return;
+            }
+            res.status(200).json({
+                showPresence: !!results[0].show_presence,
+                showTaskName: !!results[0].show_task_name
+            });
+        }
+    );
+});
+
+// Update privacy settings
+app.put("/presence/settings", authenticateToken, (req, res) => {
+    const showPresence = req.body.showPresence !== false;
+    const showTaskName = !!req.body.showTaskName;
+
+    db.query(
+        "UPDATE users SET show_presence = ?, show_task_name = ? WHERE id = ?",
+        [showPresence, showTaskName, req.user.id],
+        (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            res.status(200).json({ showPresence, showTaskName });
+        }
+    );
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);

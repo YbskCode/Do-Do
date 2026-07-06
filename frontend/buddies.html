@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Buddies - Do-Do</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+
+    <div id="loading-overlay" class="slide-overlay"></div>
+
+    <button id="goBackBtn" class="go-back-btn">
+        <i class="fa-solid fa-arrow-left"></i>
+    </button>
+
+    <div class="header-auth-container">
+        <div class="header-auth">
+            <p id="userEmailDisplay" class="user-info"></p>
+            <button id="darkModeBtn" class="darkModeBtn">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+            <button id="logoutBtn" class="logoutBtn">
+                Logout <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="buddies-container">
+        <h1 class="buddies-title"><i class="fa-solid fa-user-group"></i> Study Buddies</h1>
+
+        <section class="buddies-card">
+            <h2>Add a Buddy</h2>
+            <form id="addBuddyForm" class="add-buddy-form">
+                <input type="email" id="buddyEmailInput" placeholder="Friend's email address" required>
+                <button type="submit" id="addBuddyBtn">Send Request</button>
+            </form>
+        </section>
+
+        <section class="buddies-card" id="requestsSection" style="display: none;">
+            <h2>Friend Requests</h2>
+            <ul id="requestsList" class="buddy-list"></ul>
+        </section>
+
+        <section class="buddies-card">
+            <div class="buddies-card-header">
+                <h2>Your Buddies</h2>
+                <span id="buddyRefreshHint" class="buddy-refresh-hint">Updates every 20s</span>
+            </div>
+            <ul id="buddiesList" class="buddy-list">
+                <li class="buddy-empty">No study buddies yet. Add someone by email!</li>
+            </ul>
+        </section>
+
+        <section class="buddies-card">
+            <h2>Privacy</h2>
+            <label class="privacy-toggle">
+                <input type="checkbox" id="showPresenceToggle" checked>
+                <span>Show my online status to buddies</span>
+            </label>
+            <label class="privacy-toggle">
+                <input type="checkbox" id="showTaskNameToggle">
+                <span>Show my current task name while focusing</span>
+            </label>
+            <button id="savePrivacyBtn" class="privacy-save-btn">Save Privacy Settings</button>
+        </section>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="presence.js"></script>
+    <script src="registerLoginScript.js"></script>
+    <script src="buddies.js"></script>
+    <script src="darkMode.js"></script>
+</body>
+
+</html>
