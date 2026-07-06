@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         try {
-            const response = await authFetch(`http://localhost:3000/tasks`);
+            const response = await authFetch(apiUrl("/tasks"));
             const tasks = await response.json();
             tasks.forEach(task => {
                 addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Update in database
             try {
-                await authFetch(`http://localhost:3000/tasks/${taskId}`, {
+                await authFetch(apiUrl(`/tasks/${taskId}`), {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Update task in database
             try {
-                await authFetch(`http://localhost:3000/tasks/${li.dataset.id}`, {
+                await authFetch(apiUrl(`/tasks/${li.dataset.id}`), {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -201,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         deleteBtn.addEventListener("click", async () => {
             try {
-                await authFetch(`http://localhost:3000/tasks/${li.dataset.id}/archive`, {
+                await authFetch(apiUrl(`/tasks/${li.dataset.id}/archive`), {
                     method: "PUT"
                 });
 
@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id === null) {
             // POST new task to database
             try {
-                const response = await authFetch("http://localhost:3000/tasks", {
+                const response = await authFetch(apiUrl("/tasks"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({

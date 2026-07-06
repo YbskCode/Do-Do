@@ -195,7 +195,7 @@ async function loadTasksIntoDropdown() {
     taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
 
     try {
-        const response = await authFetch(`http://localhost:3000/tasks`);
+        const response = await authFetch(apiUrl("/tasks"));
         const savedTasks = await response.json();
 
         // Clear existing options
@@ -255,7 +255,7 @@ async function addTimeToSelectedTask() {
 
     try {
         // Update time_spent in database
-        await authFetch(`http://localhost:3000/tasks/${selectedTaskId}`, {
+        await authFetch(apiUrl(`/tasks/${selectedTaskId}`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -539,7 +539,7 @@ async function generateAnalytics() {
     canvas.style.display = "none";
 
     try {
-        const response = await authFetch(`http://localhost:3000/analytics`);
+        const response = await authFetch(apiUrl("/analytics"));
         const { totalFocusMinutes, tasks: savedTasks } = await response.json();
 
         const taskNames = [];
@@ -685,7 +685,7 @@ async function loadStreak() {
     if (!currentUser) return null;
 
     try {
-        const response = await authFetch("http://localhost:3000/streak");
+        const response = await authFetch(apiUrl("/streak"));
         const data = await response.json();
         updateStreakDisplay(data.currentStreak);
         return data;
@@ -702,7 +702,7 @@ async function recordStreakCompletion() {
     const minutes = parseInt(pomodoroTimer?.dataset.duration) || 25;
 
     try {
-        const response = await authFetch("http://localhost:3000/streak/complete", {
+        const response = await authFetch(apiUrl("/streak/complete"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutes })

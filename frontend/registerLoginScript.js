@@ -54,7 +54,7 @@ async function handleRegistration(event) {
 
     // 3. Send to backend
     try{
-        const response = await fetch("http://localhost:3000/register", {
+        const response = await fetch(apiUrl("/register"), {
             method: "POST", 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, email, password })
@@ -84,7 +84,7 @@ async function handleRegistration(event) {
         });
     } catch (err) {
         console.error(err);
-        alert("Something went wrong! Is the server is running?");
+        alert("Something went wrong! Could not reach the server.");
     } finally {
         // Always re-enable button whether success or error
         registerButton.disabled = false;
@@ -111,7 +111,7 @@ async function handleLogin(event) {
     loginButton.textContent = "Logging in...";
 
     try {
-        const response = await fetch("http://localhost:3000/login", {
+        const response = await fetch(apiUrl("/login"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
@@ -151,7 +151,7 @@ async function handleLogin(event) {
 
     } catch (err) {
         console.error(err);
-        alert("Something went wrong! Is the server running?");
+        alert("Something went wrong! Could not reach the server.");
     } finally {
         loginButton.disabled = false;
         loginButton.textContent = "Login";
