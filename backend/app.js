@@ -939,6 +939,501 @@ app.put("/presence/settings", authenticateToken, (req, res) => {
     );
 });
 
+// --- Study Together (group pomodoro) ---
+
+const SESSION_MIN_MINUTES = 5;
+const SESSION_MAX_MINUTES = 180;
+
+function clampSessionDuration(minutes, fallback) {
+    const parsed = parseInt(minutes, 10);
+    const base = Number.isNaN(parsed) ? fallback : parsed;
+    if (Number.isNaN(base)) return null;
+    return Math.min(SESSION_MAX_MINUTES, Math.max(SESSION_MIN_MINUTES, base));
+}
+
+function getAcceptedFriendIds(userId, callback) {
+    db.query(
+        `SELECT IF(requester_id = ?, addressee_id, requester_id) AS friendId
+         FROM friendships
+         WHERE status = 'accepted' AND (requester_id = ? OR addressee_id = ?)`,
+        [userId, userId, userId],
+        (err, rows) => {
+            if (err) {
+                callback(err);
+                return;
+            }
+            callback(null, rows.map((row) => row.friendId));
+        }
+    );
+}
+
+// Treat an active session whose end time has passed as effectively completed on read
+function effectiveSessionStatus(session) {
+    if (session.status === "active" && session.ends_at) {
+        if (new Date(session.ends_at).getTime() <= Date.now()) {
+            return "completed";
+        }
+    }
+    return session.status;
+}
+
+function sessionSecondsRemaining(session) {
+    if (session.status !== "active" || !session.ends_at) return 0;
+    const diff = Math.ceil((new Date(session.ends_at).getTime() - Date.now()) / 1000);
+    return Math.max(0, diff);
+}
+
+function buildSessionPayload(session, participants, userId) {
+    return {
+        id: session.id,
+        hostId: session.host_id,
+        label: session.label,
+        durationMinutes: session.duration_minutes,
+        status: effectiveSessionStatus(session),
+        startsAt: session.starts_at,
+        endsAt: session.ends_at,
+        secondsRemaining: sessionSecondsRemaining(session),
+        isHost: session.host_id === userId,
+        participants: participants.map((p) => ({
+            userId: p.user_id,
+            name: p.name,
+            username: p.username,
+            status: p.status,
+            isHost: p.user_id === session.host_id
+        }))
+    };
+}
+
+function loadSessionWithParticipants(sessionId, res, onDone) {
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, sessions) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (sessions.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+        db.query(
+            `SELECT sp.user_id, sp.status, u.name, u.username
+             FROM session_participants sp
+             JOIN users u ON u.id = sp.user_id
+             WHERE sp.session_id = ?`,
+            [sessionId],
+            (pErr, participants) => {
+                if (pErr) {
+                    console.error(pErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                onDone(sessions[0], participants);
+            }
+        );
+    });
+}
+
+function ensureSessionHost(sessionId, userId, res, onOwned) {
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, rows) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (rows.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+        if (rows[0].host_id !== userId) {
+            res.status(403).json({ message: "Only the session host can do that" });
+            return;
+        }
+        onOwned(rows[0]);
+    });
+}
+
+// Create a session (as host) and invite selected buddies
+app.post("/sessions", authenticateToken, (req, res) => {
+    const hostId = req.user.id;
+    const label = (req.body.label || "").toString().trim().slice(0, 255) || null;
+    const duration = clampSessionDuration(req.body.durationMinutes, NaN);
+
+    if (duration === null) {
+        res.status(400).json({ message: "A valid duration in minutes is required" });
+        return;
+    }
+
+    const rawBuddyIds = Array.isArray(req.body.buddyIds) ? req.body.buddyIds : [];
+    const requestedIds = [...new Set(
+        rawBuddyIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id !== hostId)
+    )];
+
+    getAcceptedFriendIds(hostId, (err, friendIds) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+
+        const friendSet = new Set(friendIds);
+        const invitees = requestedIds.filter((id) => friendSet.has(id));
+
+        db.query(
+            "INSERT INTO study_sessions (host_id, label, duration_minutes, status) VALUES (?, ?, ?, 'pending')",
+            [hostId, label, duration],
+            (insErr, result) => {
+                if (insErr) {
+                    console.error(insErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+
+                const sessionId = result.insertId;
+                const participantRows = [[sessionId, hostId, "joined"]];
+                invitees.forEach((id) => participantRows.push([sessionId, id, "invited"]));
+
+                db.query(
+                    "INSERT INTO session_participants (session_id, user_id, status) VALUES ?",
+                    [participantRows],
+                    (partErr) => {
+                        if (partErr) {
+                            console.error(partErr);
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+                        loadSessionWithParticipants(sessionId, res, (session, participants) => {
+                            res.status(201).json(buildSessionPayload(session, participants, hostId));
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
+
+// Sessions the current user is part of (joined or invited) that are still live
+app.get("/sessions/mine", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    db.query(
+        `SELECT s.* FROM study_sessions s
+         JOIN session_participants sp ON sp.session_id = s.id
+         WHERE sp.user_id = ? AND sp.status IN ('joined', 'invited')
+           AND s.status IN ('pending', 'active')
+         ORDER BY s.created_at DESC`,
+        [userId],
+        (err, sessions) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            const live = sessions.filter((s) => effectiveSessionStatus(s) !== "completed");
+            if (live.length === 0) {
+                res.status(200).json([]);
+                return;
+            }
+
+            const ids = live.map((s) => s.id);
+            db.query(
+                `SELECT sp.session_id, sp.user_id, sp.status, u.name, u.username
+                 FROM session_participants sp
+                 JOIN users u ON u.id = sp.user_id
+                 WHERE sp.session_id IN (?)`,
+                [ids],
+                (pErr, rows) => {
+                    if (pErr) {
+                        console.error(pErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    const bySession = {};
+                    rows.forEach((row) => {
+                        (bySession[row.session_id] = bySession[row.session_id] || []).push(row);
+                    });
+                    res.status(200).json(live.map((s) => buildSessionPayload(s, bySession[s.id] || [], userId)));
+                }
+            );
+        }
+    );
+});
+
+// The single active session (if any) the current user has joined - drives the shared timer
+app.get("/sessions/active", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    db.query(
+        `SELECT s.* FROM study_sessions s
+         JOIN session_participants sp ON sp.session_id = s.id
+         WHERE sp.user_id = ? AND sp.status = 'joined' AND s.status = 'active'
+         ORDER BY s.ends_at DESC
+         LIMIT 1`,
+        [userId],
+        (err, sessions) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (sessions.length === 0 || effectiveSessionStatus(sessions[0]) === "completed") {
+                res.status(200).json(null);
+                return;
+            }
+            loadSessionWithParticipants(sessions[0].id, res, (session, participants) => {
+                res.status(200).json(buildSessionPayload(session, participants, userId));
+            });
+        }
+    );
+});
+
+// Aggregated notifications: incoming friend requests + pending session invites
+app.get("/notifications", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    db.query(
+        `SELECT f.id, u.name, u.username, u.friend_code
+         FROM friendships f
+         JOIN users u ON u.id = f.requester_id
+         WHERE f.addressee_id = ? AND f.status = 'pending'
+         ORDER BY f.created_at DESC`,
+        [userId],
+        (err, friendRequests) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            db.query(
+                `SELECT s.id AS sessionId, s.label, s.duration_minutes, s.status, s.ends_at,
+                        u.name AS hostName, u.username AS hostUsername
+                 FROM session_participants sp
+                 JOIN study_sessions s ON s.id = sp.session_id
+                 JOIN users u ON u.id = s.host_id
+                 WHERE sp.user_id = ? AND sp.status = 'invited'
+                   AND s.status IN ('pending', 'active')
+                 ORDER BY s.created_at DESC`,
+                [userId],
+                (sErr, inviteRows) => {
+                    if (sErr) {
+                        console.error(sErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    const sessionInvites = inviteRows
+                        .filter((r) => effectiveSessionStatus({ status: r.status, ends_at: r.ends_at }) !== "completed")
+                        .map((r) => ({
+                            sessionId: r.sessionId,
+                            label: r.label,
+                            durationMinutes: r.duration_minutes,
+                            status: r.status,
+                            hostName: r.hostName,
+                            hostUsername: r.hostUsername
+                        }));
+
+                    res.status(200).json({
+                        friendRequests: friendRequests.map((r) => ({
+                            id: r.id,
+                            name: r.name,
+                            username: r.username,
+                            friendCode: r.friend_code
+                        })),
+                        sessionInvites
+                    });
+                }
+            );
+        }
+    );
+});
+
+// Session detail - only for participants
+app.get("/sessions/:id", authenticateToken, (req, res) => {
+    loadSessionWithParticipants(req.params.id, res, (session, participants) => {
+        const isParticipant = participants.some((p) => p.user_id === req.user.id);
+        if (!isParticipant) {
+            res.status(403).json({ message: "You are not part of this session" });
+            return;
+        }
+        res.status(200).json(buildSessionPayload(session, participants, req.user.id));
+    });
+});
+
+// Host edits session duration/label before it starts (only the host can change the times)
+app.put("/sessions/:id", authenticateToken, (req, res) => {
+    ensureSessionHost(req.params.id, req.user.id, res, (session) => {
+        if (session.status !== "pending") {
+            res.status(400).json({ message: "You can only edit a session before it starts" });
+            return;
+        }
+        const duration = clampSessionDuration(req.body.durationMinutes, session.duration_minutes);
+        const label = req.body.label !== undefined
+            ? (String(req.body.label).trim().slice(0, 255) || null)
+            : session.label;
+
+        db.query(
+            "UPDATE study_sessions SET duration_minutes = ?, label = ? WHERE id = ?",
+            [duration, label, session.id],
+            (err) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                loadSessionWithParticipants(session.id, res, (s, p) => {
+                    res.status(200).json(buildSessionPayload(s, p, req.user.id));
+                });
+            }
+        );
+    });
+});
+
+// Host starts the session - sets the shared, server-authoritative end time
+app.put("/sessions/:id/start", authenticateToken, (req, res) => {
+    ensureSessionHost(req.params.id, req.user.id, res, (session) => {
+        if (session.status !== "pending") {
+            res.status(400).json({ message: "Session has already started or ended" });
+            return;
+        }
+        db.query(
+            `UPDATE study_sessions
+             SET status = 'active', starts_at = NOW(), ends_at = DATE_ADD(NOW(), INTERVAL ? MINUTE)
+             WHERE id = ?`,
+            [session.duration_minutes, session.id],
+            (err) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                loadSessionWithParticipants(session.id, res, (s, p) => {
+                    res.status(200).json(buildSessionPayload(s, p, req.user.id));
+                });
+            }
+        );
+    });
+});
+
+// Invited buddy joins the session
+app.put("/sessions/:id/join", authenticateToken, (req, res) => {
+    const sessionId = req.params.id;
+    const userId = req.user.id;
+
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, sessions) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (sessions.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+        if (!["pending", "active"].includes(effectiveSessionStatus(sessions[0]))) {
+            res.status(400).json({ message: "This session is no longer available" });
+            return;
+        }
+
+        db.query(
+            `UPDATE session_participants SET status = 'joined', responded_at = NOW()
+             WHERE session_id = ? AND user_id = ? AND status IN ('invited', 'left')`,
+            [sessionId, userId],
+            (uErr, result) => {
+                if (uErr) {
+                    console.error(uErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                if (result.affectedRows === 0) {
+                    res.status(404).json({ message: "No invite found for this session" });
+                    return;
+                }
+                loadSessionWithParticipants(sessionId, res, (s, p) => {
+                    res.status(200).json(buildSessionPayload(s, p, userId));
+                });
+            }
+        );
+    });
+});
+
+// Invited buddy declines the session
+app.put("/sessions/:id/decline", authenticateToken, (req, res) => {
+    db.query(
+        `UPDATE session_participants SET status = 'declined', responded_at = NOW()
+         WHERE session_id = ? AND user_id = ? AND status = 'invited'`,
+        [req.params.id, req.user.id],
+        (err, result) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (result.affectedRows === 0) {
+                res.status(404).json({ message: "No invite found for this session" });
+                return;
+            }
+            res.status(200).json({ message: "Invite declined" });
+        }
+    );
+});
+
+// Leave a session. If the host leaves, the whole session is cancelled.
+app.put("/sessions/:id/leave", authenticateToken, (req, res) => {
+    const sessionId = req.params.id;
+    const userId = req.user.id;
+
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, sessions) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (sessions.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+
+        if (sessions[0].host_id === userId) {
+            db.query("UPDATE study_sessions SET status = 'cancelled' WHERE id = ?", [sessionId], (uErr) => {
+                if (uErr) {
+                    console.error(uErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                res.status(200).json({ message: "Session cancelled" });
+            });
+            return;
+        }
+
+        db.query(
+            "UPDATE session_participants SET status = 'left', responded_at = NOW() WHERE session_id = ? AND user_id = ?",
+            [sessionId, userId],
+            (uErr) => {
+                if (uErr) {
+                    console.error(uErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                res.status(200).json({ message: "You left the session" });
+            }
+        );
+    });
+});
+
+// Host cancels the session
+app.put("/sessions/:id/cancel", authenticateToken, (req, res) => {
+    ensureSessionHost(req.params.id, req.user.id, res, (session) => {
+        if (["completed", "cancelled"].includes(session.status)) {
+            res.status(400).json({ message: "Session has already ended" });
+            return;
+        }
+        db.query("UPDATE study_sessions SET status = 'cancelled' WHERE id = ?", [session.id], (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            res.status(200).json({ message: "Session cancelled" });
+        });
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);

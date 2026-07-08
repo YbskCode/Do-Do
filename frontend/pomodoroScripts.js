@@ -1007,3 +1007,125 @@ if (focusModeBtn) {
 if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken")) {
     DoDoPresence.startHeartbeat();
 }
+
+// --- Shared Study Session sync ---
+// A group ("Study Together") session has one server-authoritative end time.
+// Every participant's timer derives its countdown from that shared endTime.
+// Only the host controls the times; participants cannot edit the duration.
+
+let activeSharedSessionId = null;
+let sharedSessionBanner = null;
+
+function ensureSharedSessionBanner() {
+    if (sharedSessionBanner) return sharedSessionBanner;
+    const app = document.querySelector(".pomodoroApp");
+    if (!app) return null;
+    sharedSessionBanner = document.createElement("div");
+    sharedSessionBanner.className = "sharedSessionBanner focus-mode-content";
+    sharedSessionBanner.style.display = "none";
+    app.insertBefore(sharedSessionBanner, app.firstChild);
+    return sharedSessionBanner;
+}
+
+function showSharedSessionBanner(session) {
+    const banner = ensureSharedSessionBanner();
+    if (!banner) return;
+
+    const others = session.participants
+        .filter((p) => p.status === "joined")
+        .map((p) => (p.isHost ? `${p.name} (host)` : p.name));
+
+    const prefix = session.label ? `${session.label} · ` : "";
+    const suffix = session.isHost ? "" : " · host controls the timer";
+
+    banner.innerHTML = '<i class="fa-solid fa-people-group"></i> ';
+    const span = document.createElement("span");
+    span.textContent = `${prefix}Studying with ${others.join(", ")}${suffix}`;
+    banner.appendChild(span);
+    banner.style.display = "block";
+}
+
+function hideSharedSessionBanner() {
+    if (sharedSessionBanner) sharedSessionBanner.style.display = "none";
+}
+
+function startSharedCountdown(endsAtMs, label) {
+    endTime = endsAtMs;
+    timeLeft = Math.ceil((endTime - Date.now()) / 1000);
+    if (timeLeft <= 0) return;
+
+    if (timerInterval) clearInterval(timerInterval);
+
+    isRunning = true;
+    startButton.disabled = true;
+    startButton.textContent = "Running...";
+    startButton.style.opacity = "0.5";
+    startButton.style.pointerEvents = "none";
+
+    stopButton.disabled = false;
+    stopButton.style.opacity = "1";
+    stopButton.style.pointerEvents = "auto";
+
+    setEditDurationEnabled(false);
+    timerInterval = setInterval(countdown, 1000);
+    updateDisplay(timeLeft);
+
+    if (typeof DoDoPresence !== "undefined") {
+        DoDoPresence.syncFromTimer(true, "pomodoro-timer", endTime, label || null);
+    }
+}
+
+function handleActiveSession(session) {
+    const endsAtMs = session.endsAt ? new Date(session.endsAt).getTime() : 0;
+    if (!endsAtMs || endsAtMs <= Date.now()) {
+        clearActiveSession();
+        return;
+    }
+
+    showSharedSessionBanner(session);
+    setEditDurationEnabled(false);
+
+    const isNewSession = activeSharedSessionId !== session.id;
+    activeSharedSessionId = session.id;
+
+    if (isNewSession) {
+        const pomodoroEl = document.getElementById("pomodoro-timer");
+        if (currentTimerElement !== pomodoroEl) {
+            showOnly("pomodoro-timer");
+        }
+        pomodoroEl.dataset.duration = session.durationMinutes;
+        startSharedCountdown(endsAtMs, session.label);
+    } else if (isRunning) {
+        // Keep the local countdown aligned with the shared server end time
+        endTime = endsAtMs;
+    }
+}
+
+function clearActiveSession() {
+    if (activeSharedSessionId === null) return;
+    activeSharedSessionId = null;
+    hideSharedSessionBanner();
+    if (!isRunning) {
+        setEditDurationEnabled(true);
+    }
+}
+
+async function pollActiveSession() {
+    if (!currentUser) return;
+    try {
+        const response = await authFetch(apiUrl("/sessions/active"));
+        const session = await response.json();
+        if (response.ok && session) {
+            handleActiveSession(session);
+        } else {
+            clearActiveSession();
+        }
+    } catch (err) {
+        console.error("Failed to poll active session:", err);
+    }
+}
+
+if (currentUser) {
+    pollActiveSession();
+    setInterval(pollActiveSession, 10000);
+}
