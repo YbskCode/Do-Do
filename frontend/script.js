@@ -37,6 +37,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
+    if (typeof DoDoPresence !== "undefined") {
+        DoDoPresence.startHeartbeat();
+    }
+
     // Wrapper around fetch that attaches the auth token and handles expired sessions
     const authFetch = async (url, options = {}) => {
         const token = localStorage.getItem("authToken");
