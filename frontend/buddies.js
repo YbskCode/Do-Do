@@ -11,7 +11,19 @@ const savePrivacyBtn = document.getElementById("savePrivacyBtn");
 const myUsername = document.getElementById("myUsername");
 const myFriendCode = document.getElementById("myFriendCode");
 
+const sessionsList = document.getElementById("sessionsList");
+const newSessionBtn = document.getElementById("newSessionBtn");
+const sessionModal = document.getElementById("sessionModal");
+const closeSessionBtn = document.getElementById("closeSessionBtn");
+const sessionLabelInput = document.getElementById("sessionLabelInput");
+const sessionDurationInput = document.getElementById("sessionDurationInput");
+const sessionBuddyPicker = document.getElementById("sessionBuddyPicker");
+const sessionModalError = document.getElementById("sessionModalError");
+const createSessionBtn = document.getElementById("createSessionBtn");
+
 let buddyPollTimer = null;
+let currentBuddies = [];
+let editingSessionId = null;
 
 if (goBackBtn) {
     goBackBtn.addEventListener("click", () => {
@@ -139,6 +151,7 @@ async function loadBuddies() {
         const response = await DoDoPresence.authFetch(apiUrl("/buddies"));
         const data = await DoDoPresence.parseJsonResponse(response);
         if (response.ok) {
+            currentBuddies = data;
             renderBuddies(data);
         }
     } catch (err) {
@@ -171,9 +184,240 @@ async function loadPrivacySettings() {
     }
 }
 
-async function refreshAll() {
-    await Promise.all([loadBuddies(), loadRequests()]);
+// --- Study Together sessions ---
+
+const SESSION_STATUS_LABELS = {
+    pending: "Waiting to start",
+    active: "In progress"
+};
+
+function renderSessions(sessions) {
+    if (!sessions.length) {
+        sessionsList.innerHTML = '<li class="buddy-empty">No active study sessions. Start one to focus with your buddies!</li>';
+        return;
+    }
+
+    sessionsList.innerHTML = sessions.map((session) => {
+        const joined = session.participants.filter((p) => p.status === "joined");
+        const invited = session.participants.filter((p) => p.status === "invited");
+        const names = joined.map((p) => escapeHtml(p.isHost ? `${p.name} (host)` : p.name)).join(", ");
+        const statusLabel = SESSION_STATUS_LABELS[session.status] || session.status;
+        const title = session.label ? escapeHtml(session.label) : "Study session";
+
+        let timeInfo = `${session.durationMinutes}m`;
+        if (session.status === "active" && session.secondsRemaining > 0) {
+            timeInfo = `${Math.ceil(session.secondsRemaining / 60)}m left`;
+        }
+
+        return `
+        <li class="buddy-item session-item">
+            <div class="buddy-info">
+                <span class="session-status-dot session-status-dot--${session.status}"></span>
+                <div>
+                    <strong>${title} · ${timeInfo}</strong>
+                    <span class="buddy-meta">${statusLabel} · ${joined.length} in${invited.length ? ` · ${invited.length} invited` : ""}</span>
+                    <span class="buddy-status-text">${names || "No one joined yet"}</span>
+                </div>
+            </div>
+            <div class="session-actions">
+                ${renderSessionButtons(session)}
+            </div>
+        </li>`;
+    }).join("");
+
+    sessionsList.querySelectorAll("button[data-session-action]").forEach((btn) => {
+        btn.addEventListener("click", () => handleSessionAction(
+            btn.dataset.sessionAction,
+            btn.dataset.sessionId,
+            btn
+        ));
+    });
 }
+
+function renderSessionButtons(session) {
+    const buttons = [];
+
+    if (session.status === "active") {
+        buttons.push(`<button class="session-go-btn" data-session-action="go" data-session-id="${session.id}">Go to Timer</button>`);
+    }
+
+    if (session.isHost) {
+        if (session.status === "pending") {
+            buttons.push(`<button class="session-start-btn" data-session-action="start" data-session-id="${session.id}">Start</button>`);
+            buttons.push(`<button class="session-edit-btn" data-session-action="edit" data-session-id="${session.id}">Edit</button>`);
+        }
+        buttons.push(`<button class="session-leave-btn" data-session-action="cancel" data-session-id="${session.id}">Cancel</button>`);
+    } else {
+        buttons.push(`<button class="session-leave-btn" data-session-action="leave" data-session-id="${session.id}">Leave</button>`);
+    }
+
+    return buttons.join("");
+}
+
+async function handleSessionAction(action, sessionId, btn) {
+    if (action === "go") {
+        window.location.href = "pomodoro.html";
+        return;
+    }
+    if (action === "edit") {
+        openSessionModalForEdit(sessionId);
+        return;
+    }
+    if (action === "cancel" && !confirm("Cancel this study session for everyone?")) return;
+    if (action === "leave" && !confirm("Leave this study session?")) return;
+
+    btn.disabled = true;
+    try {
+        const response = await DoDoPresence.authFetch(apiUrl(`/sessions/${sessionId}/${action}`), { method: "PUT" });
+        if (action === "start" && response.ok) {
+            window.location.href = "pomodoro.html";
+            return;
+        }
+        await loadSessions();
+    } catch (err) {
+        console.error("Session action failed:", err);
+        btn.disabled = false;
+    }
+}
+
+async function loadSessions() {
+    if (!sessionsList) return;
+    try {
+        const response = await DoDoPresence.authFetch(apiUrl("/sessions/mine"));
+        const data = await DoDoPresence.parseJsonResponse(response);
+        if (response.ok) {
+            renderSessions(data);
+        }
+    } catch (err) {
+        console.error("Failed to load sessions:", err);
+    }
+}
+
+function renderBuddyPicker() {
+    if (!currentBuddies.length) {
+        sessionBuddyPicker.innerHTML = '<p class="buddy-empty">Add buddies first to invite them.</p>';
+        return;
+    }
+    sessionBuddyPicker.innerHTML = currentBuddies.map((buddy) => `
+        <label class="session-buddy-option">
+            <input type="checkbox" value="${buddy.id}">
+            <span>${escapeHtml(buddy.name)} <span class="buddy-meta">@${escapeHtml(buddy.username)}</span></span>
+        </label>
+    `).join("");
+}
+
+function showSessionModalError(message) {
+    if (!sessionModalError) return;
+    sessionModalError.textContent = message;
+    sessionModalError.style.display = "block";
+}
+
+function hideSessionModalError() {
+    if (!sessionModalError) return;
+    sessionModalError.style.display = "none";
+    sessionModalError.textContent = "";
+}
+
+function openSessionModalForCreate() {
+    editingSessionId = null;
+    hideSessionModalError();
+    sessionLabelInput.value = "";
+    sessionDurationInput.value = 25;
+    renderBuddyPicker();
+    sessionBuddyPicker.parentElement.style.display = "";
+    createSessionBtn.textContent = "Create Session";
+    sessionModal.style.display = "flex";
+}
+
+function openSessionModalForEdit(sessionId) {
+    hideSessionModalError();
+    DoDoPresence.authFetch(apiUrl(`/sessions/${sessionId}`))
+        .then((r) => DoDoPresence.parseJsonResponse(r))
+        .then((session) => {
+            if (!session || !session.id) return;
+            editingSessionId = session.id;
+            sessionLabelInput.value = session.label || "";
+            sessionDurationInput.value = session.durationMinutes;
+            // Invitees can't be changed after creation, so hide the picker in edit mode
+            sessionBuddyPicker.parentElement.style.display = "none";
+            createSessionBtn.textContent = "Save Changes";
+            sessionModal.style.display = "flex";
+        })
+        .catch((err) => console.error("Failed to load session for edit:", err));
+}
+
+function closeSessionModal() {
+    if (sessionModal) sessionModal.style.display = "none";
+    editingSessionId = null;
+}
+
+async function submitSession() {
+    const duration = parseInt(sessionDurationInput.value, 10);
+    if (Number.isNaN(duration) || duration < 5 || duration > 180) {
+        showSessionModalError("Duration must be between 5 and 180 minutes.");
+        return;
+    }
+
+    const label = sessionLabelInput.value.trim();
+    createSessionBtn.disabled = true;
+
+    try {
+        let response;
+        if (editingSessionId) {
+            response = await DoDoPresence.authFetch(apiUrl(`/sessions/${editingSessionId}`), {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ label, durationMinutes: duration })
+            });
+        } else {
+            const buddyIds = Array.from(
+                sessionBuddyPicker.querySelectorAll("input[type=checkbox]:checked")
+            ).map((cb) => parseInt(cb.value, 10));
+
+            response = await DoDoPresence.authFetch(apiUrl("/sessions"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ label, durationMinutes: duration, buddyIds })
+            });
+        }
+
+        const data = await DoDoPresence.parseJsonResponse(response);
+        if (!response.ok) {
+            showSessionModalError(data.message || "Could not save session.");
+            return;
+        }
+
+        closeSessionModal();
+        await loadSessions();
+    } catch (err) {
+        console.error("Failed to save session:", err);
+        showSessionModalError("Could not reach the server.");
+    } finally {
+        createSessionBtn.disabled = false;
+    }
+}
+
+if (newSessionBtn) {
+    newSessionBtn.addEventListener("click", openSessionModalForCreate);
+}
+if (closeSessionBtn) {
+    closeSessionBtn.addEventListener("click", closeSessionModal);
+}
+if (createSessionBtn) {
+    createSessionBtn.addEventListener("click", submitSession);
+}
+if (sessionModal) {
+    sessionModal.addEventListener("click", (event) => {
+        if (event.target === sessionModal) closeSessionModal();
+    });
+}
+
+async function refreshAll() {
+    await Promise.all([loadBuddies(), loadRequests(), loadSessions()]);
+}
+
+// Allow the global notification widget to refresh this page after actions
+window.loadBuddyData = refreshAll;
 
 if (addBuddyForm) {
     addBuddyForm.addEventListener("submit", async (event) => {
