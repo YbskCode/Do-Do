@@ -37,9 +37,17 @@
         <h1 class="buddies-title"><i class="fa-solid fa-user-group"></i> Study Buddies</h1>
 
         <section class="buddies-card">
+            <h2>Your Profile</h2>
+            <p class="buddy-profile-line">Username: <strong id="myUsername">—</strong></p>
+            <p class="buddy-profile-line">Friend code: <strong id="myFriendCode">—</strong></p>
+            <p class="buddy-profile-hint">Share your username or 6-digit code so others can add you.</p>
+        </section>
+
+        <section class="buddies-card">
             <h2>Add a Buddy</h2>
             <form id="addBuddyForm" class="add-buddy-form">
-                <input type="email" id="buddyEmailInput" placeholder="Friend's email address" required>
+                <input type="text" id="buddyIdentifierInput" placeholder="Username or 6-digit code" required
+                    autocomplete="off">
                 <button type="submit" id="addBuddyBtn">Send Request</button>
             </form>
         </section>
@@ -55,7 +63,7 @@
                 <span id="buddyRefreshHint" class="buddy-refresh-hint">Updates every 20s</span>
             </div>
             <ul id="buddiesList" class="buddy-list">
-                <li class="buddy-empty">No study buddies yet. Add someone by email!</li>
+                <li class="buddy-empty">No study buddies yet. Add someone by username or friend code!</li>
             </ul>
         </section>
 

@@ -1,6 +1,6 @@
 const goBackBtn = document.getElementById("goBackBtn");
 const addBuddyForm = document.getElementById("addBuddyForm");
-const buddyEmailInput = document.getElementById("buddyEmailInput");
+const buddyIdentifierInput = document.getElementById("buddyIdentifierInput");
 const addBuddyBtn = document.getElementById("addBuddyBtn");
 const requestsSection = document.getElementById("requestsSection");
 const requestsList = document.getElementById("requestsList");
@@ -8,6 +8,8 @@ const buddiesList = document.getElementById("buddiesList");
 const showPresenceToggle = document.getElementById("showPresenceToggle");
 const showTaskNameToggle = document.getElementById("showTaskNameToggle");
 const savePrivacyBtn = document.getElementById("savePrivacyBtn");
+const myUsername = document.getElementById("myUsername");
+const myFriendCode = document.getElementById("myFriendCode");
 
 let buddyPollTimer = null;
 
@@ -15,6 +17,14 @@ if (goBackBtn) {
     goBackBtn.addEventListener("click", () => {
         window.location.href = "directing.html";
     });
+}
+
+function formatUserTag(user) {
+    return `@${user.username}`;
+}
+
+function formatUserMeta(user) {
+    return `${formatUserTag(user)} · #${user.friendCode}`;
 }
 
 function statusClass(status) {
@@ -36,7 +46,7 @@ function formatStatusLabel(buddy) {
 
 function renderBuddies(buddies) {
     if (!buddies.length) {
-        buddiesList.innerHTML = '<li class="buddy-empty">No study buddies yet. Add someone by email!</li>';
+        buddiesList.innerHTML = '<li class="buddy-empty">No study buddies yet. Add someone by username or friend code!</li>';
         return;
     }
 
@@ -46,7 +56,7 @@ function renderBuddies(buddies) {
                 <span class="${statusClass(buddy.status)}" title="${DoDoPresence.STATUS_LABELS[buddy.status]}"></span>
                 <div>
                     <strong>${escapeHtml(buddy.name)}</strong>
-                    <span class="buddy-email">${escapeHtml(buddy.email)}</span>
+                    <span class="buddy-meta">${escapeHtml(formatUserMeta(buddy))}</span>
                     <span class="buddy-status-text">${escapeHtml(formatStatusLabel(buddy))}</span>
                 </div>
             </div>
@@ -74,7 +84,7 @@ function renderRequests(requests) {
             <div class="buddy-info">
                 <div>
                     <strong>${escapeHtml(req.name)}</strong>
-                    <span class="buddy-email">${escapeHtml(req.email)}</span>
+                    <span class="buddy-meta">${escapeHtml(formatUserMeta(req))}</span>
                 </div>
             </div>
             <div class="buddy-request-actions">
@@ -96,6 +106,32 @@ function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+}
+
+async function loadMyProfile() {
+    const cached = JSON.parse(localStorage.getItem("loggedInUser") || "null");
+    if (cached?.username) {
+        myUsername.textContent = `@${cached.username}`;
+        myFriendCode.textContent = cached.friendCode || "—";
+    }
+
+    try {
+        const response = await DoDoPresence.authFetch(apiUrl("/users/me"));
+        const data = await DoDoPresence.parseJsonResponse(response);
+        if (response.ok) {
+            myUsername.textContent = `@${data.username}`;
+            myFriendCode.textContent = data.friendCode;
+            if (cached) {
+                localStorage.setItem("loggedInUser", JSON.stringify({
+                    ...cached,
+                    username: data.username,
+                    friendCode: data.friendCode
+                }));
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load profile:", err);
+    }
 }
 
 async function loadBuddies() {
@@ -142,8 +178,8 @@ async function refreshAll() {
 if (addBuddyForm) {
     addBuddyForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const email = buddyEmailInput.value.trim();
-        if (!email) return;
+        const identifier = buddyIdentifierInput.value.trim();
+        if (!identifier) return;
 
         addBuddyBtn.disabled = true;
         addBuddyBtn.textContent = "Sending...";
@@ -152,7 +188,7 @@ if (addBuddyForm) {
             const response = await DoDoPresence.authFetch(apiUrl("/buddies/request"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ identifier })
             });
             const data = await DoDoPresence.parseJsonResponse(response);
 
@@ -161,7 +197,7 @@ if (addBuddyForm) {
                 return;
             }
 
-            buddyEmailInput.value = "";
+            buddyIdentifierInput.value = "";
             alert("Friend request sent!");
             await refreshAll();
         } catch (err) {
@@ -233,6 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     DoDoPresence.startHeartbeat();
+    loadMyProfile();
     loadPrivacySettings();
     refreshAll();
     buddyPollTimer = setInterval(refreshAll, 20000);

@@ -92,6 +92,69 @@ function getEffectiveCurrentStreak(currentStreak, lastStreakDate) {
     return 0;
 }
 
+function normalizeUsername(username) {
+    return String(username || "").trim().toLowerCase();
+}
+
+function validateUsername(username) {
+    const normalized = normalizeUsername(username);
+    if (!/^[a-z0-9_]{3,20}$/.test(normalized)) {
+        return {
+            valid: false,
+            message: "Username must be 3-20 characters and use letters, numbers, or underscores only"
+        };
+    }
+    return { valid: true, normalized };
+}
+
+function generateUniqueFriendCode(callback) {
+    const friendCode = String(Math.floor(100000 + Math.random() * 900000));
+    db.query("SELECT id FROM users WHERE friend_code = ?", [friendCode], (err, results) => {
+        if (err) {
+            callback(err);
+            return;
+        }
+        if (results.length > 0) {
+            generateUniqueFriendCode(callback);
+            return;
+        }
+        callback(null, friendCode);
+    });
+}
+
+function findUserByIdentifier(identifier, callback) {
+    const trimmed = String(identifier || "").trim();
+    if (!trimmed) {
+        callback(null, null);
+        return;
+    }
+
+    if (/^\d{6}$/.test(trimmed)) {
+        db.query(
+            "SELECT id, name, username, friend_code FROM users WHERE friend_code = ?",
+            [trimmed],
+            (err, results) => callback(err, results[0] || null)
+        );
+        return;
+    }
+
+    const username = normalizeUsername(trimmed.replace(/^@/, ""));
+    db.query(
+        "SELECT id, name, username, friend_code FROM users WHERE username = ?",
+        [username],
+        (err, results) => callback(err, results[0] || null)
+    );
+}
+
+function publicUserProfile(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        username: row.username,
+        friendCode: row.friend_code
+    };
+}
+
 function getUserStreakStats(userId, res, onSuccess) {
     db.query(
         "SELECT current_streak, longest_streak, last_streak_date FROM users WHERE id = ?",
@@ -120,41 +183,73 @@ function getUserStreakStats(userId, res, onSuccess) {
 
 // REGISTER
 app.post("/register", (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, username } = req.body;
+    const usernameCheck = validateUsername(username);
 
-    // Check if user already exists
-    db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
-        if (err) {
-            console.error(err);
-            res.status(500).json({ message: "Database error"}, err);
+    if (!usernameCheck.valid) {
+        res.status(400).json({ message: usernameCheck.message });
+        return;
+    }
+
+    db.query("SELECT id FROM users WHERE email = ?", [email], (emailErr, emailResults) => {
+        if (emailErr) {
+            console.error(emailErr);
+            res.status(500).json({ message: "Database error" });
             return;
         }
-
-        if (results.length > 0) {
+        if (emailResults.length > 0) {
             res.status(400).json({ message: "Email already registered" });
             return;
         }
 
-        // Hash the password before storing it
-        bcrypt.hash(password, SALT_ROUNDS, (hashErr, hashedPassword) => {
-            if (hashErr) {
-                console.error(hashErr);
-                res.status(500).json({ message: "Error securing password" });
-                return;
-            }
-
-            // Insert new user with the hashed password
-            db.query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
-                [name, email, hashedPassword], 
-                (err, results) => {
-                if (err) {
-                    console.error(err);
-                    res.status(500).json({ message: "Database error"}, err);
+        db.query(
+            "SELECT id FROM users WHERE username = ?",
+            [usernameCheck.normalized],
+            (userErr, userResults) => {
+                if (userErr) {
+                    console.error(userErr);
+                    res.status(500).json({ message: "Database error" });
                     return;
                 }
-                res.status(201).json({ message: "Registration successful!"});
-            });
-        });
+                if (userResults.length > 0) {
+                    res.status(400).json({ message: "Username already taken" });
+                    return;
+                }
+
+                bcrypt.hash(password, SALT_ROUNDS, (hashErr, hashedPassword) => {
+                    if (hashErr) {
+                        console.error(hashErr);
+                        res.status(500).json({ message: "Error securing password" });
+                        return;
+                    }
+
+                    generateUniqueFriendCode((codeErr, friendCode) => {
+                        if (codeErr) {
+                            console.error(codeErr);
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+
+                        db.query(
+                            "INSERT INTO users (name, email, username, friend_code, password) VALUES (?, ?, ?, ?, ?)",
+                            [name, email, usernameCheck.normalized, friendCode, hashedPassword],
+                            (insertErr) => {
+                                if (insertErr) {
+                                    console.error(insertErr);
+                                    res.status(500).json({ message: "Database error" });
+                                    return;
+                                }
+                                res.status(201).json({
+                                    message: "Registration successful!",
+                                    username: usernameCheck.normalized,
+                                    friendCode
+                                });
+                            }
+                        );
+                    });
+                });
+            }
+        );
     });
 });
 
@@ -194,7 +289,7 @@ app.post("/login", (req,res) => {
 
                 // Issue a signed token containing the user's identity
                 const token = jwt.sign(
-                    { id: user.id, name: user.name, email: user.email },
+                    { id: user.id, name: user.name, username: user.username },
                     ACTIVE_JWT_SECRET,
                     { expiresIn: "7d" }
                 );
@@ -203,9 +298,10 @@ app.post("/login", (req,res) => {
                     message: "Login Successful!", 
                     token: token,
                     user: {
-                        id:user.id,
+                        id: user.id,
                         name: user.name,
-                        email: user.email
+                        username: user.username,
+                        friendCode: user.friend_code
                     }
                 });
             });
@@ -528,7 +624,8 @@ app.get("/buddies", authenticateToken, (req, res) => {
             f.id AS friendship_id,
             u.id,
             u.name,
-            u.email,
+            u.username,
+            u.friend_code,
             u.show_presence,
             u.show_task_name,
             p.status,
@@ -563,7 +660,8 @@ app.get("/buddies", authenticateToken, (req, res) => {
                 return {
                     id: row.id,
                     name: row.name,
-                    email: row.email,
+                    username: row.username,
+                    friendCode: row.friend_code,
                     friendshipId: row.friendship_id,
                     ...presence
                 };
@@ -577,7 +675,7 @@ app.get("/buddies", authenticateToken, (req, res) => {
 // Incoming friend requests
 app.get("/buddies/requests", authenticateToken, (req, res) => {
     db.query(
-        `SELECT f.id, f.created_at, u.id AS userId, u.name, u.email
+        `SELECT f.id, f.created_at, u.id AS userId, u.name, u.username, u.friend_code
          FROM friendships f
          JOIN users u ON u.id = f.requester_id
          WHERE f.addressee_id = ? AND f.status = 'pending'
@@ -589,39 +687,44 @@ app.get("/buddies/requests", authenticateToken, (req, res) => {
                 res.status(500).json({ message: "Database error" });
                 return;
             }
-            res.status(200).json(results);
+            res.status(200).json(results.map((row) => ({
+                id: row.id,
+                created_at: row.created_at,
+                userId: row.userId,
+                name: row.name,
+                username: row.username,
+                friendCode: row.friend_code
+            })));
         }
     );
 });
 
-// Send friend request by email
+// Send friend request by username or 6-digit friend code
 app.post("/buddies/request", authenticateToken, (req, res) => {
     const requesterId = req.user.id;
-    const email = (req.body.email || "").trim().toLowerCase();
+    const identifier = req.body.identifier || req.body.username || req.body.friendCode || "";
 
-    if (!email) {
-        res.status(400).json({ message: "Email is required" });
+    if (!String(identifier).trim()) {
+        res.status(400).json({ message: "Username or friend code is required" });
         return;
     }
 
-    if (email === req.user.email.toLowerCase()) {
-        res.status(400).json({ message: "You cannot add yourself as a buddy" });
-        return;
-    }
-
-    db.query("SELECT id, name, email FROM users WHERE email = ?", [email], (err, results) => {
+    findUserByIdentifier(identifier, (err, addressee) => {
         if (err) {
             console.error(err);
             res.status(500).json({ message: "Database error" });
             return;
         }
 
-        if (results.length === 0) {
-            res.status(404).json({ message: "No user found with that email" });
+        if (!addressee) {
+            res.status(404).json({ message: "No user found with that username or friend code" });
             return;
         }
 
-        const addressee = results[0];
+        if (addressee.id === requesterId) {
+            res.status(400).json({ message: "You cannot add yourself as a buddy" });
+            return;
+        }
 
         findFriendshipBetween(requesterId, addressee.id, (friendErr, friendships) => {
             if (friendErr) {
@@ -651,11 +754,34 @@ app.post("/buddies/request", authenticateToken, (req, res) => {
                         res.status(500).json({ message: "Database error" });
                         return;
                     }
-                    res.status(201).json({ message: "Friend request sent!", user: addressee });
+                    res.status(201).json({
+                        message: "Friend request sent!",
+                        user: publicUserProfile(addressee)
+                    });
                 }
             );
         });
     });
+});
+
+// Current user public profile (username + friend code)
+app.get("/users/me", authenticateToken, (req, res) => {
+    db.query(
+        "SELECT id, name, username, friend_code FROM users WHERE id = ?",
+        [req.user.id],
+        (err, results) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (results.length === 0) {
+                res.status(404).json({ message: "User not found" });
+                return;
+            }
+            res.status(200).json(publicUserProfile(results[0]));
+        }
+    );
 });
 
 // Accept friend request

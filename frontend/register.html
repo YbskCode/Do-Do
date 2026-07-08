@@ -30,6 +30,8 @@
 
             <form class="inputArea" id="registerForm" action="">
                 <input type="text" id="regName" name="name" placeholder="Name" required>
+                <input type="text" id="regUsername" name="username" placeholder="Username (3-20 chars)" required
+                    pattern="[A-Za-z0-9_]{3,20}" title="Letters, numbers, and underscores only">
                 <input type="email" id="regEmail" name="email" placeholder="Email" required>
                 <input type="password" id="regPassword" name="password" placeholder="Password" required>
                 <button type="submit" id="registerBtn" name="register">Register</button>

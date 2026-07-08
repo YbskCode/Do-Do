@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(20) NOT NULL UNIQUE,
+    friend_code CHAR(6) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     current_streak INT DEFAULT 0,
     longest_streak INT DEFAULT 0,

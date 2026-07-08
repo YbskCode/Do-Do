@@ -1,6 +1,7 @@
 // Get references to the elements using the IDs we added
 const registerForm = document.getElementById('registerForm');
 const emailInput = document.getElementById('regEmail');
+const usernameInput = document.getElementById('regUsername');
 const passwordInput = document.getElementById('regPassword');
 const registerButton = document.getElementById('registerBtn');
 const loginEmailInput = document.getElementById('loginEmail');
@@ -10,7 +11,7 @@ const loginButton = document.getElementById('loginBtn');
 //For directing.html
 const todoBtn = document.querySelector('.directingButton:nth-of-type(1)'); // First button
 const pomodoroBtn = document.querySelector('.directingButton:nth-of-type(2)'); // Second button
-const buddiesBtn = document.getElementById('buddiesBtn');
+const buddiesBtn = document.querySelector('.directingButton:nth-of-type(3)'); // Third button
 
 if (todoBtn) {
     todoBtn.addEventListener('click', () => {
@@ -27,14 +28,6 @@ if (pomodoroBtn) {
 if (buddiesBtn) {
     buddiesBtn.addEventListener('click', () => {
         window.location.href = 'buddies.html';
-    });
-}
-
-if (typeof DoDoPresence !== "undefined") {
-    document.addEventListener("DOMContentLoaded", () => {
-        if (localStorage.getItem("authToken")) {
-            DoDoPresence.startHeartbeat();
-        }
     });
 }
 //For directing.html
@@ -55,12 +48,18 @@ async function handleRegistration(event) {
     event.preventDefault(); 
 
     const name = document.getElementById("regName").value.trim();
+    const username = usernameInput ? usernameInput.value.trim() : "";
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
 
     // 1. Validate inputs (basic check)
-    if (email === '' || password === '') {
+    if (email === '' || password === '' || name === '' || username === '') {
         alert('Please fill in all fields.');
+        return;
+    }
+
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+        alert('Username must be 3-20 characters and use letters, numbers, or underscores only.');
         return;
     }
 
@@ -72,7 +71,7 @@ async function handleRegistration(event) {
         const response = await fetch(apiUrl("/register"), {
             method: "POST", 
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, username, email, password })
         });
 
         const data = await response.json();
@@ -89,10 +88,11 @@ async function handleRegistration(event) {
         Swal.fire({
             icon: "success",
             title: "Registration Successful!",
-            text: "You can now log in",
+            html: `You can now log in.<br><br>Your username: <strong>@${data.username}</strong><br>Your friend code: <strong>#${data.friendCode}</strong>`,
             showConfirmButton: false,
-            timer: 2000
+            timer: 4000
         }).then(() => {
+            if (usernameInput) usernameInput.value = "";
             emailInput.value = "";
             passwordInput.value = "";
             window.location.href = "login.html";
@@ -151,7 +151,8 @@ async function handleLogin(event) {
         localStorage.setItem("loggedInUser", JSON.stringify({
             id: data.user.id,
             name: data.user.name,
-            email: data.user.email
+            username: data.user.username,
+            friendCode: data.user.friendCode
         }));
 
         Swal.fire({
@@ -223,7 +224,10 @@ if (userEmailDisplay && logoutBtn) {
 
     // 2. If user is successfully authenticated, update the UI
     if (currentUser) {
-        userEmailDisplay.textContent = `Logged in as: ${currentUser.email}`;
+        const label = currentUser.username
+            ? `@${currentUser.username}`
+            : currentUser.name;
+        userEmailDisplay.textContent = `Logged in as: ${label}`;
     }
 
     // 3. Attach Logout Event Listener
