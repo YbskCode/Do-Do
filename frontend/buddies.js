@@ -353,8 +353,8 @@ function closeSessionModal() {
 
 async function submitSession() {
     const duration = parseInt(sessionDurationInput.value, 10);
-    if (Number.isNaN(duration) || duration < 5 || duration > 180) {
-        showSessionModalError("Duration must be between 5 and 180 minutes.");
+    if (Number.isNaN(duration) || duration < 25 || duration > 180) {
+        showSessionModalError("Duration must be between 25 and 180 minutes.");
         return;
     }
 

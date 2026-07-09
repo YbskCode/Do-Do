@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS study_sessions (
     status ENUM('pending', 'active', 'completed', 'cancelled') DEFAULT 'pending',
     starts_at DATETIME NULL,
     ends_at DATETIME NULL,
+    is_paused BOOLEAN DEFAULT FALSE,
+    remaining_seconds INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (host_id) REFERENCES users(id) ON DELETE CASCADE
 );

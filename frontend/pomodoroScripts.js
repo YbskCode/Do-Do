@@ -395,6 +395,12 @@ function countdown() {
  * Initializes and starts the countdown for the currently selected timer.
  */
 function startCountdown() {
+    // In a shared session the START/RESUME button controls the shared timer for everyone
+    if (activeSharedSessionId) {
+        resumeSharedSession();
+        return;
+    }
+
     if (isRunning) {
         return; // Already running
     }
@@ -477,6 +483,11 @@ if (stopAlarmBtn) {
 // 3. Attach listener to the Stop button
 if (stopButton) {
     stopButton.addEventListener('click', () => {
+        // In a shared session, stopping freezes the timer for every participant
+        if (activeSharedSessionId) {
+            pauseSharedSession();
+            return;
+        }
         stopTimer();
         // Optional: Make it clear the timer is paused
         startButton.textContent = "RESUME";
@@ -1015,6 +1026,7 @@ if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken")) {
 
 let activeSharedSessionId = null;
 let sharedSessionBanner = null;
+let sharedPauseInFlight = false;
 
 function ensureSharedSessionBanner() {
     if (sharedSessionBanner) return sharedSessionBanner;
@@ -1036,11 +1048,12 @@ function showSharedSessionBanner(session) {
         .map((p) => (p.isHost ? `${p.name} (host)` : p.name));
 
     const prefix = session.label ? `${session.label} · ` : "";
-    const suffix = session.isHost ? "" : " · host controls the timer";
+    const pausedNote = session.isPaused ? " · Paused" : "";
 
-    banner.innerHTML = '<i class="fa-solid fa-people-group"></i> ';
+    banner.classList.toggle("sharedSessionBanner--paused", !!session.isPaused);
+    banner.innerHTML = `<i class="fa-solid ${session.isPaused ? "fa-pause" : "fa-people-group"}"></i> `;
     const span = document.createElement("span");
-    span.textContent = `${prefix}Studying with ${others.join(", ")}${suffix}`;
+    span.textContent = `${prefix}Studying with ${others.join(", ")}${pausedNote}`;
     banner.appendChild(span);
     banner.style.display = "block";
 }
@@ -1049,14 +1062,22 @@ function hideSharedSessionBanner() {
     if (sharedSessionBanner) sharedSessionBanner.style.display = "none";
 }
 
-function startSharedCountdown(endsAtMs, label) {
-    endTime = endsAtMs;
+// Timer is live: sync the local countdown to the shared server end time
+function applyRunningSession(session) {
+    endTime = new Date(session.endsAt).getTime();
     timeLeft = Math.ceil((endTime - Date.now()) / 1000);
     if (timeLeft <= 0) return;
 
-    if (timerInterval) clearInterval(timerInterval);
+    if (!isRunning) {
+        isRunning = true;
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(countdown, 1000);
 
-    isRunning = true;
+        if (typeof DoDoPresence !== "undefined") {
+            DoDoPresence.syncFromTimer(true, "pomodoro-timer", endTime, session.label || null);
+        }
+    }
+
     startButton.disabled = true;
     startButton.textContent = "Running...";
     startButton.style.opacity = "0.5";
@@ -1066,19 +1087,35 @@ function startSharedCountdown(endsAtMs, label) {
     stopButton.style.opacity = "1";
     stopButton.style.pointerEvents = "auto";
 
-    setEditDurationEnabled(false);
-    timerInterval = setInterval(countdown, 1000);
-    updateDisplay(timeLeft);
+    updateDisplay(Math.max(0, timeLeft));
+}
 
-    if (typeof DoDoPresence !== "undefined") {
-        DoDoPresence.syncFromTimer(true, "pomodoro-timer", endTime, label || null);
+// Timer is frozen for everyone: stop counting and hold the remaining time
+function applyPausedSession(session) {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
     }
+    isRunning = false;
+    timeLeft = session.secondsRemaining;
+    updateDisplay(Math.max(0, timeLeft));
+
+    startButton.disabled = false;
+    startButton.textContent = "RESUME";
+    startButton.style.opacity = "1";
+    startButton.style.pointerEvents = "auto";
+
+    stopButton.disabled = true;
+    stopButton.style.opacity = "0.5";
+    stopButton.style.pointerEvents = "none";
 }
 
 function handleActiveSession(session) {
-    const endsAtMs = session.endsAt ? new Date(session.endsAt).getTime() : 0;
-    if (!endsAtMs || endsAtMs <= Date.now()) {
-        clearActiveSession();
+    // Don't let a poll restart the timer while a pause request is in flight
+    if (sharedPauseInFlight && !session.isPaused) {
+        showSharedSessionBanner({ ...session, isPaused: true });
+        setEditDurationEnabled(false);
+        activeSharedSessionId = session.id;
         return;
     }
 
@@ -1094,10 +1131,12 @@ function handleActiveSession(session) {
             showOnly("pomodoro-timer");
         }
         pomodoroEl.dataset.duration = session.durationMinutes;
-        startSharedCountdown(endsAtMs, session.label);
-    } else if (isRunning) {
-        // Keep the local countdown aligned with the shared server end time
-        endTime = endsAtMs;
+    }
+
+    if (session.isPaused) {
+        applyPausedSession(session);
+    } else {
+        applyRunningSession(session);
     }
 }
 
@@ -1105,8 +1144,75 @@ function clearActiveSession() {
     if (activeSharedSessionId === null) return;
     activeSharedSessionId = null;
     hideSharedSessionBanner();
-    if (!isRunning) {
-        setEditDurationEnabled(true);
+    if (isRunning) {
+        stopTimer();
+    }
+    setEditDurationEnabled(true);
+    startButton.textContent = "START";
+}
+
+function freezeLocalSharedTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    isRunning = false;
+    if (endTime) {
+        timeLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+    }
+    updateDisplay(Math.max(0, timeLeft));
+
+    startButton.disabled = false;
+    startButton.textContent = "RESUME";
+    startButton.style.opacity = "1";
+    startButton.style.pointerEvents = "auto";
+
+    stopButton.disabled = true;
+    stopButton.style.opacity = "0.5";
+    stopButton.style.pointerEvents = "none";
+}
+
+async function pauseSharedSession() {
+    if (!activeSharedSessionId) return;
+
+    // Freeze this client immediately so STOP always feels responsive
+    sharedPauseInFlight = true;
+    freezeLocalSharedTimer();
+
+    try {
+        const response = await authFetch(apiUrl(`/sessions/${activeSharedSessionId}/pause`), { method: "PUT" });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.error("Pause failed:", data.message || response.status);
+            alert(data.message || "Could not pause the shared session. Deploy the latest backend and run railway-sessions-pause.sql on Railway.");
+            sharedPauseInFlight = false;
+            await pollActiveSession();
+            return;
+        }
+        sharedPauseInFlight = false;
+        await pollActiveSession();
+    } catch (err) {
+        console.error("Failed to pause session:", err);
+        alert("Could not reach the server to pause the shared session.");
+        sharedPauseInFlight = false;
+        await pollActiveSession();
+    }
+}
+
+async function resumeSharedSession() {
+    if (!activeSharedSessionId) return;
+    try {
+        const response = await authFetch(apiUrl(`/sessions/${activeSharedSessionId}/resume`), { method: "PUT" });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.error("Resume failed:", data.message || response.status);
+            alert(data.message || "Could not resume the shared session. Deploy the latest backend and run the pause migration on Railway.");
+            return;
+        }
+        await pollActiveSession();
+    } catch (err) {
+        console.error("Failed to resume session:", err);
+        alert("Could not reach the server to resume the shared session.");
     }
 }
 
@@ -1127,5 +1233,6 @@ async function pollActiveSession() {
 
 if (currentUser) {
     pollActiveSession();
-    setInterval(pollActiveSession, 10000);
+    // Poll frequently so a pause/resume by one member freezes the timer for all quickly
+    setInterval(pollActiveSession, 4000);
 }

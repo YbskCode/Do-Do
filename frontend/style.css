@@ -373,6 +373,32 @@ body.dark-mode .motivationalQuote
 {
     grid-column: 2;
     max-width: 500px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    justify-content: flex-start;
+}
+
+/* Keep children at their natural size and scroll instead of squeezing them */
+.pomodoroApp > *
+{
+    flex-shrink: 0;
+}
+
+.pomodoroApp::-webkit-scrollbar
+{
+    width: 6px;
+}
+
+.pomodoroApp::-webkit-scrollbar-track
+{
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.pomodoroApp::-webkit-scrollbar-thumb
+{
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 10px;
 }
 
 .buttonContainer
@@ -1840,6 +1866,11 @@ body.dark-mode .buddy-item {
     color: white;
     font-size: 0.9rem;
     max-width: 90%;
+}
+
+.sharedSessionBanner--paused {
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.45);
 }
 
 /* --- Global notification widget --- */

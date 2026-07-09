@@ -941,7 +941,7 @@ app.put("/presence/settings", authenticateToken, (req, res) => {
 
 // --- Study Together (group pomodoro) ---
 
-const SESSION_MIN_MINUTES = 5;
+const SESSION_MIN_MINUTES = 25;
 const SESSION_MAX_MINUTES = 180;
 
 function clampSessionDuration(minutes, fallback) {
@@ -967,9 +967,10 @@ function getAcceptedFriendIds(userId, callback) {
     );
 }
 
-// Treat an active session whose end time has passed as effectively completed on read
+// Treat an active session whose end time has passed as effectively completed on read.
+// A paused session never expires while it is frozen.
 function effectiveSessionStatus(session) {
-    if (session.status === "active" && session.ends_at) {
+    if (session.status === "active" && !session.is_paused && session.ends_at) {
         if (new Date(session.ends_at).getTime() <= Date.now()) {
             return "completed";
         }
@@ -978,7 +979,11 @@ function effectiveSessionStatus(session) {
 }
 
 function sessionSecondsRemaining(session) {
-    if (session.status !== "active" || !session.ends_at) return 0;
+    if (session.status !== "active") return 0;
+    if (session.is_paused) {
+        return Math.max(0, session.remaining_seconds || 0);
+    }
+    if (!session.ends_at) return 0;
     const diff = Math.ceil((new Date(session.ends_at).getTime() - Date.now()) / 1000);
     return Math.max(0, diff);
 }
@@ -992,6 +997,7 @@ function buildSessionPayload(session, participants, userId) {
         status: effectiveSessionStatus(session),
         startsAt: session.starts_at,
         endsAt: session.ends_at,
+        isPaused: !!session.is_paused,
         secondsRemaining: sessionSecondsRemaining(session),
         isHost: session.host_id === userId,
         participants: participants.map((p) => ({
@@ -1430,6 +1436,131 @@ app.put("/sessions/:id/cancel", authenticateToken, (req, res) => {
                 return;
             }
             res.status(200).json({ message: "Session cancelled" });
+        });
+    });
+});
+
+function ensureJoinedParticipant(sessionId, userId, res, onOk) {
+    db.query(
+        "SELECT status FROM session_participants WHERE session_id = ? AND user_id = ?",
+        [sessionId, userId],
+        (err, rows) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+            if (rows.length === 0 || rows[0].status !== "joined") {
+                res.status(403).json({ message: "You are not part of this session" });
+                return;
+            }
+            onOk();
+        }
+    );
+}
+
+// Pause the shared timer - freezes it for every participant. Any joined member may do this.
+app.put("/sessions/:id/pause", authenticateToken, (req, res) => {
+    const sessionId = req.params.id;
+    const userId = req.user.id;
+
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, rows) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (rows.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+
+        const session = rows[0];
+        if (session.status !== "active") {
+            res.status(400).json({ message: "Session is not running" });
+            return;
+        }
+
+        ensureJoinedParticipant(sessionId, userId, res, () => {
+            if (session.is_paused) {
+                loadSessionWithParticipants(sessionId, res, (s, p) => {
+                    res.status(200).json(buildSessionPayload(s, p, userId));
+                });
+                return;
+            }
+
+            const remaining = Math.max(
+                0,
+                Math.ceil((new Date(session.ends_at).getTime() - Date.now()) / 1000)
+            );
+
+            db.query(
+                "UPDATE study_sessions SET is_paused = TRUE, remaining_seconds = ? WHERE id = ?",
+                [remaining, sessionId],
+                (uErr) => {
+                    if (uErr) {
+                        console.error(uErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    loadSessionWithParticipants(sessionId, res, (s, p) => {
+                        res.status(200).json(buildSessionPayload(s, p, userId));
+                    });
+                }
+            );
+        });
+    });
+});
+
+// Resume the shared timer - unfreezes it for every participant.
+app.put("/sessions/:id/resume", authenticateToken, (req, res) => {
+    const sessionId = req.params.id;
+    const userId = req.user.id;
+
+    db.query("SELECT * FROM study_sessions WHERE id = ?", [sessionId], (err, rows) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (rows.length === 0) {
+            res.status(404).json({ message: "Session not found" });
+            return;
+        }
+
+        const session = rows[0];
+        if (session.status !== "active") {
+            res.status(400).json({ message: "Session is not running" });
+            return;
+        }
+
+        ensureJoinedParticipant(sessionId, userId, res, () => {
+            if (!session.is_paused) {
+                loadSessionWithParticipants(sessionId, res, (s, p) => {
+                    res.status(200).json(buildSessionPayload(s, p, userId));
+                });
+                return;
+            }
+
+            const remaining = Math.max(0, session.remaining_seconds || 0);
+
+            db.query(
+                `UPDATE study_sessions
+                 SET is_paused = FALSE, remaining_seconds = NULL,
+                     ends_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
+                 WHERE id = ?`,
+                [remaining, sessionId],
+                (uErr) => {
+                    if (uErr) {
+                        console.error(uErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    loadSessionWithParticipants(sessionId, res, (s, p) => {
+                        res.status(200).json(buildSessionPayload(s, p, userId));
+                    });
+                }
+            );
         });
     });
 });
