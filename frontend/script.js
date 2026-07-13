@@ -37,7 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
-    if (typeof DoDoPresence !== "undefined") {
+    const guestMode = typeof isGuestSession === "function" && isGuestSession();
+
+    if (!guestMode && typeof DoDoPresence !== "undefined") {
         DoDoPresence.startHeartbeat();
     }
 
@@ -49,9 +51,23 @@ document.addEventListener("DOMContentLoaded", () => {
         if (response.status === 401) {
             localStorage.removeItem("loggedInUser");
             localStorage.removeItem("authToken");
+            localStorage.removeItem(GUEST_FLAG_KEY);
             window.location.href = "login.html";
         }
         return response;
+    };
+
+    const nextGuestTaskId = (tasks) => {
+        const maxId = tasks.reduce((max, task) => Math.max(max, Number(task.id) || 0), 0);
+        return maxId + 1;
+    };
+
+    const updateGuestTask = (taskId, patch) => {
+        const tasks = getGuestTasks();
+        const index = tasks.findIndex((t) => String(t.id) === String(taskId));
+        if (index === -1) return;
+        tasks[index] = { ...tasks[index], ...patch };
+        saveGuestTasks(tasks);
     };
 
     const toggleEmptyState = () => {
@@ -76,11 +92,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         try {
-            const response = await authFetch(apiUrl("/tasks"));
-            const tasks = await response.json();
-            tasks.forEach(task => {
-                addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
-            });
+            if (guestMode) {
+                getGuestTasks().forEach((task) => {
+                    addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
+                });
+            } else {
+                const response = await authFetch(apiUrl("/tasks"));
+                const tasks = await response.json();
+                tasks.forEach(task => {
+                    addTask(task.id, task.task_name, task.task_completed, task.time_spent, task.task_archived);
+                });
+            }
         } catch (err) {
             console.error("Failed to load tasks: ", err);
             taskList.innerHTML = '<p style="color: white; text-align: center;">Could not load tasks. Please check your connection.</p>';
@@ -108,17 +130,25 @@ document.addEventListener("DOMContentLoaded", () => {
             editingLi.querySelector("span").textContent = newText;
             editingLi.style.display = "flex";
 
-            // Update in database
+            // Update in database / local guest store
             try {
-                await authFetch(apiUrl(`/tasks/${taskId}`), {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
+                if (guestMode) {
+                    updateGuestTask(taskId, {
                         task_name: newText,
                         task_completed: editingLi.querySelector(".checkbox").checked,
                         time_spent: parseInt(editingLi.dataset.timeSpent) || 0
-                    })
-                });
+                    });
+                } else {
+                    await authFetch(apiUrl(`/tasks/${taskId}`), {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            task_name: newText,
+                            task_completed: editingLi.querySelector(".checkbox").checked,
+                            time_spent: parseInt(editingLi.dataset.timeSpent) || 0
+                        })
+                    });
+                }
             } catch (err) {
                 console.error("Failed to update task:", err);
             }
@@ -171,17 +201,25 @@ document.addEventListener("DOMContentLoaded", () => {
             editBtn.style.opacity = isChecked ? "0.5" : "1";
             editBtn.style.pointerEvents = isChecked ? "none" : "auto";
 
-            // Update task in database
+            // Update task in database / local guest store
             try {
-                await authFetch(apiUrl(`/tasks/${li.dataset.id}`), {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
+                if (guestMode) {
+                    updateGuestTask(li.dataset.id, {
                         task_name: li.querySelector("span").textContent,
                         task_completed: isChecked,
                         time_spent: parseInt(li.dataset.timeSpent) || 0
-                    })
-                });
+                    });
+                } else {
+                    await authFetch(apiUrl(`/tasks/${li.dataset.id}`), {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            task_name: li.querySelector("span").textContent,
+                            task_completed: isChecked,
+                            time_spent: parseInt(li.dataset.timeSpent) || 0
+                        })
+                    });
+                }
             } catch (err) {
                 console.error("Failed to update task:", err);
             }
@@ -205,9 +243,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         deleteBtn.addEventListener("click", async () => {
             try {
-                await authFetch(apiUrl(`/tasks/${li.dataset.id}/archive`), {
-                    method: "PUT"
-                });
+                if (guestMode) {
+                    updateGuestTask(li.dataset.id, { task_archived: true });
+                } else {
+                    await authFetch(apiUrl(`/tasks/${li.dataset.id}/archive`), {
+                        method: "PUT"
+                    });
+                }
 
                 li.classList.add("archived");
                 li.style.display = "none";
@@ -223,20 +265,34 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleEmptyState();
 
         if (id === null) {
-            // POST new task to database
+            // POST new task to database / local guest store
             try {
-                const response = await authFetch(apiUrl("/tasks"), {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        task_name: taskText
-                    })
-                });
+                if (guestMode) {
+                    const tasks = getGuestTasks();
+                    const newId = nextGuestTaskId(tasks);
+                    tasks.push({
+                        id: newId,
+                        task_name: taskText,
+                        task_completed: false,
+                        time_spent: 0,
+                        task_archived: false
+                    });
+                    saveGuestTasks(tasks);
+                    li.dataset.id = newId;
+                } else {
+                    const response = await authFetch(apiUrl("/tasks"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            task_name: taskText
+                        })
+                    });
 
-                const data = await response.json();
+                    const data = await response.json();
 
-                // Store the database ID on the li so we can reference it later
-                li.dataset.id = data.id;
+                    // Store the database ID on the li so we can reference it later
+                    li.dataset.id = data.id;
+                }
 
             } catch (err) {
                 console.error("Failed to save task:", err);
@@ -324,4 +380,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 });
-

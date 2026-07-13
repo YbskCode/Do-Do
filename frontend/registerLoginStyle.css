@@ -131,6 +131,19 @@ p
     background: rgb(222, 113, 113);
 }
 
+.guestLoginBtn
+{
+    margin-top: -8px !important;
+    background: transparent !important;
+    border: 2px solid rgba(255, 255, 255, 0.45) !important;
+}
+
+.guestLoginBtn:hover
+{
+    background: rgba(255, 255, 255, 0.18) !important;
+    transform: scale(1.05);
+}
+
 /* Dark Mode CSS */
 
 /* Dark mode overlay on background */

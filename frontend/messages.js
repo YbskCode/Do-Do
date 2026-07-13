@@ -184,8 +184,10 @@ function getRequestedBuddyId() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (!localStorage.getItem("authToken")) {
-        window.location.href = "login.html";
+    if (!localStorage.getItem("authToken") || (typeof isGuestSession === "function" && isGuestSession())) {
+        window.location.href = typeof isGuestSession === "function" && isGuestSession()
+            ? "directing.html"
+            : "login.html";
         return;
     }
 
