@@ -10,6 +10,7 @@ const DoDoNotify = (() => {
     let panelOpen = false;
     let seenFriendIds = new Set();
     let seenSessionIds = new Set();
+    let seenMessageIds = new Set();
     let firstLoad = true;
 
     let root = null;
@@ -87,10 +88,24 @@ const DoDoNotify = (() => {
         }, 5000);
     }
 
-    function renderPanel(friendRequests, sessionInvites) {
+    // A message notification is only shown when the receiver is:
+    //  - outside the messages page, and
+    //  - outside a pomodoro (focusing) session.
+    // Rule 3 ("first message after the user's reply") is enforced server-side.
+    function messageNotificationsSuppressed() {
+        const onMessagesPage = window.location.pathname
+            .toLowerCase()
+            .endsWith("messages.html");
+        const inPomodoroSession = typeof DoDoPresence !== "undefined"
+            && typeof DoDoPresence.getStatus === "function"
+            && DoDoPresence.getStatus() === "focusing";
+        return onMessagesPage || inPomodoroSession;
+    }
+
+    function renderPanel(friendRequests, sessionInvites, messageNotifications) {
         const list = panelEl.querySelector(".doDoNotifyList");
 
-        if (!friendRequests.length && !sessionInvites.length) {
+        if (!friendRequests.length && !sessionInvites.length && !messageNotifications.length) {
             list.innerHTML = '<p class="doDoNotifyEmpty">You\'re all caught up.</p>';
             return;
         }
@@ -131,7 +146,22 @@ const DoDoNotify = (() => {
             </div>`;
         }).join("");
 
-        list.innerHTML = friendHtml + sessionHtml;
+        const messageHtml = messageNotifications.map((note) => `
+            <div class="doDoNotifyItem" data-type="message" data-id="${note.fromUserId}">
+                <div class="doDoNotifyItemInfo">
+                    <i class="fa-solid fa-comment doDoNotifyItemIcon"></i>
+                    <div>
+                        <strong>${escapeHtml(note.name)}</strong>
+                        <span class="doDoNotifyItemMeta">${escapeHtml(note.preview)}</span>
+                    </div>
+                </div>
+                <div class="doDoNotifyItemActions">
+                    <button class="doDoNotifyAccept" data-action="message-reply" data-id="${note.fromUserId}">Reply</button>
+                </div>
+            </div>
+        `).join("");
+
+        list.innerHTML = friendHtml + sessionHtml + messageHtml;
         list.querySelectorAll("button[data-action]").forEach((btn) => {
             btn.addEventListener("click", () => handleAction(btn.dataset.action, btn.dataset.id, btn));
         });
@@ -152,6 +182,9 @@ const DoDoNotify = (() => {
                     window.location.href = "pomodoro.html";
                     return;
                 }
+            } else if (action === "message-reply") {
+                window.location.href = `messages.html?user=${id}`;
+                return;
             }
             if (typeof window.loadBuddyData === "function") {
                 window.loadBuddyData();
@@ -172,9 +205,15 @@ const DoDoNotify = (() => {
 
             const friendRequests = data.friendRequests || [];
             const sessionInvites = data.sessionInvites || [];
+            // When suppressed, treat message notifications as absent so they
+            // neither toast nor count, and stay "unseen" for later delivery.
+            const messageNotifications = messageNotificationsSuppressed()
+                ? []
+                : (data.messageNotifications || []);
 
             const currentFriendIds = new Set(friendRequests.map((r) => r.id));
             const currentSessionIds = new Set(sessionInvites.map((s) => s.sessionId));
+            const currentMessageIds = new Set(messageNotifications.map((m) => m.messageId));
 
             if (!firstLoad) {
                 friendRequests
@@ -183,14 +222,18 @@ const DoDoNotify = (() => {
                 sessionInvites
                     .filter((s) => !seenSessionIds.has(s.sessionId))
                     .forEach((s) => showToast(`${s.hostName} invited you to study together`));
+                messageNotifications
+                    .filter((m) => !seenMessageIds.has(m.messageId))
+                    .forEach((m) => showToast(`${m.name} sent you a message`));
             }
 
             seenFriendIds = currentFriendIds;
             seenSessionIds = currentSessionIds;
+            seenMessageIds = currentMessageIds;
             firstLoad = false;
 
-            updateBadge(friendRequests.length + sessionInvites.length);
-            renderPanel(friendRequests, sessionInvites);
+            updateBadge(friendRequests.length + sessionInvites.length + messageNotifications.length);
+            renderPanel(friendRequests, sessionInvites, messageNotifications);
         } catch (err) {
             console.error("Failed to load notifications:", err);
         }

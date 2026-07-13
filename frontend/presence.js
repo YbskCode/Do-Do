@@ -119,6 +119,7 @@ const DoDoPresence = (() => {
         syncFromTimer,
         startHeartbeat,
         stopHeartbeat,
+        getStatus: () => currentStatus,
         STATUS_LABELS
     };
 })();

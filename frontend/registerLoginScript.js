@@ -12,6 +12,7 @@ const loginButton = document.getElementById('loginBtn');
 const todoBtn = document.querySelector('.directingButton:nth-of-type(1)'); // First button
 const pomodoroBtn = document.querySelector('.directingButton:nth-of-type(2)'); // Second button
 const buddiesBtn = document.querySelector('.directingButton:nth-of-type(3)'); // Third button
+const messagesBtn = document.querySelector('.directingButton:nth-of-type(4)'); // Fourth button
 
 if (todoBtn) {
     todoBtn.addEventListener('click', () => {
@@ -28,6 +29,12 @@ if (pomodoroBtn) {
 if (buddiesBtn) {
     buddiesBtn.addEventListener('click', () => {
         window.location.href = 'buddies.html';
+    });
+}
+
+if (messagesBtn) {
+    messagesBtn.addEventListener('click', () => {
+        window.location.href = 'messages.html';
     });
 }
 //For directing.html
