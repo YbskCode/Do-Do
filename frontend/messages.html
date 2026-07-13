@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - Do-Do</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+
+    <div id="loading-overlay" class="slide-overlay"></div>
+
+    <button id="goBackBtn" class="go-back-btn">
+        <i class="fa-solid fa-arrow-left"></i>
+    </button>
+
+    <div class="header-auth-container">
+        <div class="header-auth">
+            <p id="userEmailDisplay" class="user-info"></p>
+            <button id="darkModeBtn" class="darkModeBtn">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+            <button id="logoutBtn" class="logoutBtn">
+                Logout <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="messages-container">
+        <h1 class="messages-title"><i class="fa-solid fa-comments"></i> Messages</h1>
+
+        <div class="messages-layout">
+            <aside class="messages-sidebar">
+                <h2>Buddies</h2>
+                <ul id="conversationList" class="conversation-list">
+                    <li class="buddy-empty">Loading buddies...</li>
+                </ul>
+            </aside>
+
+            <section class="messages-thread" id="messagesThread">
+                <div id="threadEmpty" class="thread-empty">
+                    <i class="fa-solid fa-comment-dots"></i>
+                    <p>Select a buddy to start chatting.</p>
+                </div>
+
+                <div id="threadActive" class="thread-active" style="display: none;">
+                    <header class="thread-header">
+                        <span id="threadBuddyStatus" class="buddy-status buddy-status--offline"></span>
+                        <div>
+                            <strong id="threadBuddyName">—</strong>
+                            <span id="threadBuddyMeta" class="buddy-meta"></span>
+                        </div>
+                    </header>
+
+                    <div id="threadMessages" class="thread-messages"></div>
+
+                    <form id="messageForm" class="message-form">
+                        <input type="text" id="messageInput" placeholder="Type a message..." maxlength="2000"
+                            autocomplete="off">
+                        <button type="submit" id="sendMessageBtn" title="Send">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="presence.js"></script>
+    <script src="notifications.js"></script>
+    <script src="registerLoginScript.js"></script>
+    <script src="messages.js"></script>
+    <script src="darkMode.js"></script>
+</body>
+
+</html>

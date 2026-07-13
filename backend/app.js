@@ -1234,15 +1234,58 @@ app.get("/notifications", authenticateToken, (req, res) => {
                             hostUsername: r.hostUsername
                         }));
 
-                    res.status(200).json({
-                        friendRequests: friendRequests.map((r) => ({
-                            id: r.id,
-                            name: r.name,
-                            username: r.username,
-                            friendCode: r.friend_code
-                        })),
-                        sessionInvites
-                    });
+                    // Message notifications: latest unread, notification-worthy message
+                    // per conversation (rule 3 is enforced by triggers_notification).
+                    db.query(
+                        `SELECT m.id AS messageId, m.body, m.conversation_id AS conversationId,
+                                u.id AS fromUserId, u.name, u.username,
+                                (SELECT COUNT(*) FROM messages m2
+                                    WHERE m2.conversation_id = m.conversation_id
+                                      AND m2.sender_id = u.id AND m2.read_at IS NULL) AS unreadCount
+                         FROM messages m
+                         JOIN conversations c ON c.id = m.conversation_id
+                         JOIN users u ON u.id = m.sender_id
+                         WHERE m.read_at IS NULL
+                           AND m.triggers_notification = TRUE
+                           AND m.sender_id <> ?
+                           AND (c.user_one_id = ? OR c.user_two_id = ?)
+                           AND m.id = (
+                               SELECT MAX(m3.id) FROM messages m3
+                               WHERE m3.conversation_id = m.conversation_id
+                                 AND m3.read_at IS NULL
+                                 AND m3.triggers_notification = TRUE
+                                 AND m3.sender_id = u.id
+                           )
+                         ORDER BY m.id DESC`,
+                        [userId, userId, userId],
+                        (msgErr, msgRows) => {
+                            if (msgErr) {
+                                console.error(msgErr);
+                                res.status(500).json({ message: "Database error" });
+                                return;
+                            }
+
+                            const messageNotifications = msgRows.map((r) => ({
+                                messageId: r.messageId,
+                                fromUserId: r.fromUserId,
+                                name: r.name,
+                                username: r.username,
+                                preview: r.body.length > 60 ? `${r.body.slice(0, 60)}…` : r.body,
+                                unreadCount: Number(r.unreadCount) || 0
+                            }));
+
+                            res.status(200).json({
+                                friendRequests: friendRequests.map((r) => ({
+                                    id: r.id,
+                                    name: r.name,
+                                    username: r.username,
+                                    friendCode: r.friend_code
+                                })),
+                                sessionInvites,
+                                messageNotifications
+                            });
+                        }
+                    );
                 }
             );
         }
@@ -1562,6 +1605,286 @@ app.put("/sessions/:id/resume", authenticateToken, (req, res) => {
                 }
             );
         });
+    });
+});
+
+// --- Direct Messages (1-to-1 between buddies) ---
+
+const MESSAGE_MAX_LENGTH = 2000;
+
+function ensureAcceptedFriendship(userA, userB, res, onOk) {
+    findFriendshipBetween(userA, userB, (err, rows) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        if (rows.length === 0 || rows[0].status !== "accepted") {
+            res.status(403).json({ message: "You can only message your buddies" });
+            return;
+        }
+        onOk();
+    });
+}
+
+function getOrCreateConversation(userId, otherId, callback) {
+    const one = Math.min(userId, otherId);
+    const two = Math.max(userId, otherId);
+
+    db.query(
+        "SELECT * FROM conversations WHERE user_one_id = ? AND user_two_id = ?",
+        [one, two],
+        (err, rows) => {
+            if (err) {
+                callback(err);
+                return;
+            }
+            if (rows.length > 0) {
+                callback(null, rows[0]);
+                return;
+            }
+            db.query(
+                "INSERT INTO conversations (user_one_id, user_two_id) VALUES (?, ?)",
+                [one, two],
+                (insErr, result) => {
+                    if (insErr) {
+                        callback(insErr);
+                        return;
+                    }
+                    callback(null, { id: result.insertId, user_one_id: one, user_two_id: two });
+                }
+            );
+        }
+    );
+}
+
+// Inbox: every accepted buddy with last message preview + unread count.
+// Friends with no messages yet are still listed so users can start a chat.
+app.get("/messages/conversations", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+
+    db.query(
+        `SELECT
+            u.id AS userId,
+            u.name,
+            u.username,
+            c.id AS conversationId,
+            c.last_message_at AS lastMessageAt,
+            (SELECT m.body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS lastBody,
+            (SELECT m.sender_id FROM messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS lastSenderId,
+            (SELECT COUNT(*) FROM messages m
+                WHERE m.conversation_id = c.id AND m.sender_id = u.id AND m.read_at IS NULL) AS unreadCount
+         FROM friendships f
+         JOIN users u ON u.id = IF(f.requester_id = ?, f.addressee_id, f.requester_id)
+         LEFT JOIN conversations c
+            ON c.user_one_id = LEAST(?, u.id) AND c.user_two_id = GREATEST(?, u.id)
+         WHERE f.status = 'accepted' AND (f.requester_id = ? OR f.addressee_id = ?)
+         ORDER BY (c.last_message_at IS NULL), c.last_message_at DESC, u.name ASC`,
+        [userId, userId, userId, userId, userId],
+        (err, rows) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            res.status(200).json(rows.map((row) => ({
+                userId: row.userId,
+                name: row.name,
+                username: row.username,
+                conversationId: row.conversationId,
+                lastMessageAt: row.lastMessageAt,
+                unreadCount: Number(row.unreadCount) || 0,
+                lastMessage: row.lastBody
+                    ? { body: row.lastBody, fromMe: row.lastSenderId === userId }
+                    : null
+            })));
+        }
+    );
+});
+
+// Full thread with one buddy. Marks the buddy's messages as read on open.
+app.get("/messages/conversations/:userId", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const otherId = parseInt(req.params.userId, 10);
+
+    if (!Number.isInteger(otherId) || otherId === userId) {
+        res.status(400).json({ message: "Invalid conversation" });
+        return;
+    }
+
+    ensureAcceptedFriendship(userId, otherId, res, () => {
+        db.query(
+            "SELECT id, name, username, friend_code FROM users WHERE id = ?",
+            [otherId],
+            (uErr, userRows) => {
+                if (uErr) {
+                    console.error(uErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                if (userRows.length === 0) {
+                    res.status(404).json({ message: "User not found" });
+                    return;
+                }
+
+                getOrCreateConversation(userId, otherId, (cErr, conversation) => {
+                    if (cErr) {
+                        console.error(cErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+
+                    db.query(
+                        `UPDATE messages SET read_at = NOW()
+                         WHERE conversation_id = ? AND sender_id = ? AND read_at IS NULL`,
+                        [conversation.id, otherId],
+                        (rErr) => {
+                            if (rErr) {
+                                console.error(rErr);
+                                res.status(500).json({ message: "Database error" });
+                                return;
+                            }
+
+                            db.query(
+                                `SELECT id, sender_id, body, read_at, created_at
+                                 FROM messages WHERE conversation_id = ?
+                                 ORDER BY id ASC`,
+                                [conversation.id],
+                                (mErr, messages) => {
+                                    if (mErr) {
+                                        console.error(mErr);
+                                        res.status(500).json({ message: "Database error" });
+                                        return;
+                                    }
+                                    res.status(200).json({
+                                        conversationId: conversation.id,
+                                        buddy: publicUserProfile(userRows[0]),
+                                        messages: messages.map((m) => ({
+                                            id: m.id,
+                                            senderId: m.sender_id,
+                                            body: m.body,
+                                            fromMe: m.sender_id === userId,
+                                            readAt: m.read_at,
+                                            createdAt: m.created_at
+                                        }))
+                                    });
+                                }
+                            );
+                        }
+                    );
+                });
+            }
+        );
+    });
+});
+
+// Send a message to a buddy.
+app.post("/messages/conversations/:userId", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const otherId = parseInt(req.params.userId, 10);
+    const body = (req.body.body || "").toString().trim();
+
+    if (!Number.isInteger(otherId) || otherId === userId) {
+        res.status(400).json({ message: "Invalid conversation" });
+        return;
+    }
+    if (!body) {
+        res.status(400).json({ message: "Message cannot be empty" });
+        return;
+    }
+    if (body.length > MESSAGE_MAX_LENGTH) {
+        res.status(400).json({ message: `Message must be ${MESSAGE_MAX_LENGTH} characters or fewer` });
+        return;
+    }
+
+    ensureAcceptedFriendship(userId, otherId, res, () => {
+        getOrCreateConversation(userId, otherId, (cErr, conversation) => {
+            if (cErr) {
+                console.error(cErr);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            // Rule: a message notifies only if it is the sender's first message
+            // after the other user's reply (or the very first message).
+            db.query(
+                "SELECT sender_id FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1",
+                [conversation.id],
+                (lastErr, lastRows) => {
+                    if (lastErr) {
+                        console.error(lastErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+
+                    const triggersNotification = lastRows.length === 0 || lastRows[0].sender_id !== userId;
+
+                    db.query(
+                        "INSERT INTO messages (conversation_id, sender_id, body, triggers_notification) VALUES (?, ?, ?, ?)",
+                        [conversation.id, userId, body, triggersNotification],
+                        (insErr, result) => {
+                            if (insErr) {
+                                console.error(insErr);
+                                res.status(500).json({ message: "Database error" });
+                                return;
+                            }
+
+                            db.query(
+                                "UPDATE conversations SET last_message_at = NOW() WHERE id = ?",
+                                [conversation.id],
+                                (upErr) => {
+                                    if (upErr) {
+                                        console.error(upErr);
+                                        res.status(500).json({ message: "Database error" });
+                                        return;
+                                    }
+                                    res.status(201).json({
+                                        id: result.insertId,
+                                        senderId: userId,
+                                        body,
+                                        fromMe: true,
+                                        readAt: null,
+                                        createdAt: new Date()
+                                    });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        });
+    });
+});
+
+// Explicitly mark a buddy's messages as read (clears unread badge).
+app.put("/messages/conversations/:userId/read", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const otherId = parseInt(req.params.userId, 10);
+
+    if (!Number.isInteger(otherId)) {
+        res.status(400).json({ message: "Invalid conversation" });
+        return;
+    }
+
+    getOrCreateConversation(userId, otherId, (cErr, conversation) => {
+        if (cErr) {
+            console.error(cErr);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+        db.query(
+            "UPDATE messages SET read_at = NOW() WHERE conversation_id = ? AND sender_id = ? AND read_at IS NULL",
+            [conversation.id, otherId],
+            (err) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+                res.status(200).json({ message: "Marked as read" });
+            }
+        );
     });
 });
 

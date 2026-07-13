@@ -72,11 +72,22 @@ function renderBuddies(buddies) {
                     <span class="buddy-status-text">${escapeHtml(formatStatusLabel(buddy))}</span>
                 </div>
             </div>
-            <button class="buddy-remove-btn" data-user-id="${buddy.id}" title="Remove buddy">
-                <i class="fa-solid fa-user-minus"></i>
-            </button>
+            <div class="buddy-actions">
+                <button class="buddy-message-btn" data-user-id="${buddy.id}" title="Message">
+                    <i class="fa-solid fa-comment"></i>
+                </button>
+                <button class="buddy-remove-btn" data-user-id="${buddy.id}" title="Remove buddy">
+                    <i class="fa-solid fa-user-minus"></i>
+                </button>
+            </div>
         </li>
     `).join("");
+
+    buddiesList.querySelectorAll(".buddy-message-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            window.location.href = `messages.html?user=${btn.dataset.userId}`;
+        });
+    });
 
     buddiesList.querySelectorAll(".buddy-remove-btn").forEach((btn) => {
         btn.addEventListener("click", () => removeBuddy(btn.dataset.userId));
