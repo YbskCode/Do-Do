@@ -1879,11 +1879,98 @@ body.dark-mode .buddy-item {
 }
 
 /* Shared session banner on the pomodoro page */
-.sharedSessionBanner {
+.studyTogetherContainer
+{
+    background-color: rgb(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 16px;
+    border-radius: 15px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.studyTogetherContainer .buddies-card-header
+{
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
-    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.studyTogetherContainer .buddies-card-header h2
+{
+    margin: 0;
+    font-size: 1rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.studySessionsList
+{
+    max-height: 260px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.studySessionsList .buddy-item
+{
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    padding: 0.7rem 0.75rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.studySessionsList .buddy-empty
+{
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    list-style: none;
+}
+
+.studySessionsList .buddy-info
+{
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.studySessionsList .buddy-info strong,
+.studySessionsList .buddy-meta,
+.studySessionsList .buddy-status-text
+{
+    display: block;
+    color: white;
+    font-size: 0.82rem;
+    line-height: 1.3;
+}
+
+.studySessionsList .buddy-meta,
+.studySessionsList .buddy-status-text
+{
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: 400;
+    margin-top: 0.15rem;
+}
+
+.sharedSessionBanner
+{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     margin: 0 auto 1rem;
     padding: 0.65rem 1rem;
     border-radius: 12px;
@@ -1892,6 +1979,42 @@ body.dark-mode .buddy-item {
     color: white;
     font-size: 0.9rem;
     max-width: 90%;
+}
+
+.sharedSessionBannerText
+{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.sharedSessionBannerActions
+{
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.sharedSessionBannerActions button
+{
+    padding: 0.4rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    cursor: pointer;
+    font-family: "Jost", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.sharedSessionBannerActions .session-leave-btn:hover,
+.sharedSessionBannerActions .session-end-btn:hover
+{
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
 }
 
 .sharedSessionBanner--paused {

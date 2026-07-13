@@ -140,7 +140,7 @@ const DoDoNotify = (() => {
                     </div>
                 </div>
                 <div class="doDoNotifyItemActions">
-                    <button class="doDoNotifyAccept" data-action="session-join" data-id="${invite.sessionId}">Join</button>
+                    <button class="doDoNotifyAccept" data-action="session-join" data-id="${invite.sessionId}">Accept</button>
                     <button class="doDoNotifyDecline" data-action="session-decline" data-id="${invite.sessionId}">Decline</button>
                 </div>
             </div>`;
@@ -182,6 +182,8 @@ const DoDoNotify = (() => {
                     window.location.href = "pomodoro.html";
                     return;
                 }
+                const data = await DoDoPresence.parseJsonResponse(response);
+                alert(data.message || "Could not join this session.");
             } else if (action === "message-reply") {
                 window.location.href = `messages.html?user=${id}`;
                 return;

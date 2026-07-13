@@ -160,6 +160,12 @@ function saveDurationFromModal() {
 
     setTimerDuration(currentTimerElement.id, entered);
     closeDurationModal();
+
+    // Keep a waiting Study Together session in sync with the pomodoro duration
+    const pendingHost = getPendingHostSession();
+    if (pendingHost && currentTimerElement?.id === "pomodoro-timer") {
+        syncPendingSessionDuration(pendingHost.id, entered);
+    }
 }
 
 function setEditDurationEnabled(enabled) {
@@ -402,10 +408,23 @@ function countdown() {
 /**
  * Initializes and starts the countdown for the currently selected timer.
  */
-function startCountdown() {
+async function startCountdown() {
     // In a shared session the START/RESUME button controls the shared timer for everyone
     if (activeSharedSessionId) {
         resumeSharedSession();
+        return;
+    }
+
+    // Host starts Study Together by pressing the normal Go button
+    const pendingHost = getPendingHostSession();
+    if (pendingHost) {
+        await startPendingSharedSession(pendingHost.id);
+        return;
+    }
+
+    // Guests waiting for the host should not start a solo timer
+    const pendingJoined = getPendingJoinedSession();
+    if (pendingJoined && !pendingJoined.isHost) {
         return;
     }
 
@@ -1016,14 +1035,44 @@ if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken")) {
     DoDoPresence.startHeartbeat();
 }
 
-// --- Shared Study Session sync ---
-// A group ("Study Together") session has one server-authoritative end time.
-// Every participant's timer derives its countdown from that shared endTime.
-// Only the host controls the times; participants cannot edit the duration.
+// --- Shared Study Session sync + management (pomodoro is the control surface) ---
+// Host creates/invites/starts/ends here. Guests leave without affecting others.
+// Mid-join after the countdown starts is blocked on the backend.
 
 let activeSharedSessionId = null;
 let sharedSessionBanner = null;
 let sharedPauseInFlight = false;
+let sessionBuddies = [];
+let invitingSessionId = null;
+let knownMineSessions = [];
+
+const sessionsList = document.getElementById("sessionsList");
+const newSessionBtn = document.getElementById("newSessionBtn");
+const sessionModal = document.getElementById("sessionModal");
+const sessionModalTitle = document.getElementById("sessionModalTitle");
+const closeSessionBtn = document.getElementById("closeSessionBtn");
+const sessionLabelInput = document.getElementById("sessionLabelInput");
+const sessionDurationInput = document.getElementById("sessionDurationInput");
+const sessionBuddyPicker = document.getElementById("sessionBuddyPicker");
+const sessionBuddyField = document.getElementById("sessionBuddyField");
+const sessionBuddyFieldLabel = document.getElementById("sessionBuddyFieldLabel");
+const sessionLabelField = document.getElementById("sessionLabelField");
+const sessionDurationField = document.getElementById("sessionDurationField");
+const sessionModalError = document.getElementById("sessionModalError");
+const createSessionBtn = document.getElementById("createSessionBtn");
+
+const SESSION_STATUS_LABELS = {
+    pending: "Waiting to start",
+    active: "In progress"
+};
+
+function escapeSessionHtml(text) {
+    return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
 
 function ensureSharedSessionBanner() {
     if (sharedSessionBanner) return sharedSessionBanner;
@@ -1045,18 +1094,426 @@ function showSharedSessionBanner(session) {
         .map((p) => (p.isHost ? `${p.name} (host)` : p.name));
 
     const prefix = session.label ? `${session.label} · ` : "";
-    const pausedNote = session.isPaused ? " · Paused" : "";
+    let statusNote = "";
+    if (session.status === "pending") {
+        statusNote = session.isHost ? " · Waiting to start" : " · Waiting for host";
+    } else if (session.isPaused) {
+        statusNote = " · Paused";
+    }
 
-    banner.classList.toggle("sharedSessionBanner--paused", !!session.isPaused);
-    banner.innerHTML = `<i class="fa-solid ${session.isPaused ? "fa-pause" : "fa-people-group"}"></i> `;
+    banner.classList.toggle("sharedSessionBanner--paused", !!session.isPaused || session.status === "pending");
+    banner.innerHTML = "";
+
+    const textWrap = document.createElement("div");
+    textWrap.className = "sharedSessionBannerText";
+    textWrap.innerHTML = `<i class="fa-solid ${session.isPaused || session.status === "pending" ? "fa-pause" : "fa-people-group"}"></i>`;
     const span = document.createElement("span");
-    span.textContent = `${prefix}Studying with ${others.join(", ")}${pausedNote}`;
-    banner.appendChild(span);
-    banner.style.display = "block";
+    span.textContent = `${prefix}Studying with ${others.join(", ") || "your buddies"}${statusNote}`;
+    textWrap.appendChild(span);
+    banner.appendChild(textWrap);
+
+    const actions = document.createElement("div");
+    actions.className = "sharedSessionBannerActions";
+
+    if (session.isHost) {
+        const endBtn = document.createElement("button");
+        endBtn.type = "button";
+        endBtn.className = "session-end-btn";
+        endBtn.textContent = "End session";
+        endBtn.addEventListener("click", () => handleSessionAction("cancel", session.id, endBtn));
+        actions.appendChild(endBtn);
+    } else {
+        const leaveBtn = document.createElement("button");
+        leaveBtn.type = "button";
+        leaveBtn.className = "session-leave-btn";
+        leaveBtn.textContent = "Leave";
+        leaveBtn.addEventListener("click", () => handleSessionAction("leave", session.id, leaveBtn));
+        actions.appendChild(leaveBtn);
+    }
+
+    banner.appendChild(actions);
+    banner.style.display = "flex";
 }
 
 function hideSharedSessionBanner() {
     if (sharedSessionBanner) sharedSessionBanner.style.display = "none";
+}
+
+function getMySessionStatus(session) {
+    if (session.myStatus) return session.myStatus;
+    const mine = session.participants?.find(
+        (p) => Number(p.userId) === Number(currentUser?.id)
+    );
+    return mine?.status || null;
+}
+
+function renderSessionButtons(session) {
+    const buttons = [];
+    const myStatus = getMySessionStatus(session);
+
+    if (session.isHost) {
+        if (session.status === "pending") {
+            buttons.push(`<button class="session-edit-btn" data-session-action="invite" data-session-id="${session.id}">Invite</button>`);
+        }
+        buttons.push(`<button class="session-leave-btn" data-session-action="cancel" data-session-id="${session.id}">End</button>`);
+    } else if (myStatus === "invited" && session.status === "pending") {
+        // Must explicitly accept before becoming a joined participant
+        buttons.push(`<button class="session-start-btn" data-session-action="join" data-session-id="${session.id}">Accept</button>`);
+        buttons.push(`<button class="session-leave-btn" data-session-action="decline" data-session-id="${session.id}">Decline</button>`);
+    } else if (myStatus === "joined" && (session.status === "pending" || session.status === "active")) {
+        buttons.push(`<button class="session-leave-btn" data-session-action="leave" data-session-id="${session.id}">Leave</button>`);
+    }
+
+    return buttons.join("");
+}
+
+function renderSessions(sessions) {
+    if (!sessionsList) return;
+    knownMineSessions = sessions;
+
+    if (!sessions.length) {
+        sessionsList.innerHTML = '<li class="buddy-empty">No study sessions yet. Create one to focus with buddies.</li>';
+        return;
+    }
+
+    sessionsList.innerHTML = sessions.map((session) => {
+        const myStatus = getMySessionStatus(session);
+        const joined = session.participants.filter((p) => p.status === "joined");
+        const invited = session.participants.filter((p) => p.status === "invited");
+        const names = joined.map((p) => escapeSessionHtml(p.isHost ? `${p.name} (host)` : p.name)).join(", ");
+        const statusLabel = myStatus === "invited"
+            ? "Invite pending"
+            : (SESSION_STATUS_LABELS[session.status] || session.status);
+        const title = session.label ? escapeSessionHtml(session.label) : "Study session";
+
+        let timeInfo = `${session.durationMinutes}m`;
+        if (session.status === "active" && session.secondsRemaining > 0) {
+            timeInfo = `${Math.ceil(session.secondsRemaining / 60)}m left`;
+        }
+
+        return `
+        <li class="buddy-item session-item">
+            <div class="buddy-info">
+                <span class="session-status-dot session-status-dot--${session.status}"></span>
+                <div>
+                    <strong>${title} · ${timeInfo}</strong>
+                    <span class="buddy-meta">${statusLabel} · ${joined.length} in${invited.length ? ` · ${invited.length} invited` : ""}</span>
+                    <span class="buddy-status-text">${names || "No one joined yet"}</span>
+                </div>
+            </div>
+            <div class="session-actions">
+                ${renderSessionButtons(session)}
+            </div>
+        </li>`;
+    }).join("");
+
+    sessionsList.querySelectorAll("button[data-session-action]").forEach((btn) => {
+        btn.addEventListener("click", () => handleSessionAction(
+            btn.dataset.sessionAction,
+            btn.dataset.sessionId,
+            btn
+        ));
+    });
+}
+
+async function handleSessionAction(action, sessionId, btn) {
+    if (action === "invite") {
+        await loadSessionBuddies();
+        openSessionModalForInvite(sessionId);
+        return;
+    }
+    if (action === "cancel" && !confirm("End this study session for everyone?")) return;
+    if (action === "leave" && !confirm("Leave this study session?")) return;
+    if (action === "decline" && !confirm("Decline this study session invite?")) return;
+
+    if (btn) btn.disabled = true;
+    try {
+        const response = await authFetch(apiUrl(`/sessions/${sessionId}/${action}`), { method: "PUT" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            alert(data.message || "Session action failed");
+            if (btn) btn.disabled = false;
+            return;
+        }
+
+        if (action === "cancel" || action === "leave" || action === "decline") {
+            if (String(activeSharedSessionId) === String(sessionId)) {
+                clearActiveSession();
+            }
+            hideSharedSessionBanner();
+        }
+
+        await loadMineSessions();
+        await pollActiveSession();
+
+        if (typeof DoDoNotify !== "undefined" && typeof DoDoNotify.refresh === "function") {
+            DoDoNotify.refresh();
+        }
+    } catch (err) {
+        console.error("Session action failed:", err);
+        if (btn) btn.disabled = false;
+    }
+}
+
+function getPendingJoinedSession() {
+    return knownMineSessions.find((s) =>
+        s.status === "pending" && getMySessionStatus(s) === "joined"
+    ) || null;
+}
+
+function getPendingHostSession() {
+    const session = getPendingJoinedSession();
+    return session?.isHost ? session : null;
+}
+
+async function syncPendingSessionDuration(sessionId, durationMinutes) {
+    try {
+        const response = await authFetch(apiUrl(`/sessions/${sessionId}`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ durationMinutes })
+        });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.error("Failed to sync session duration:", data.message || response.status);
+            return;
+        }
+        await loadMineSessions();
+    } catch (err) {
+        console.error("Failed to sync session duration:", err);
+    }
+}
+
+async function startPendingSharedSession(sessionId) {
+    try {
+        const durationMinutes = parseInt(currentTimerElement?.dataset.duration, 10);
+        if (!Number.isNaN(durationMinutes)) {
+            const updateResponse = await authFetch(apiUrl(`/sessions/${sessionId}`), {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ durationMinutes })
+            });
+            if (!updateResponse.ok) {
+                const data = await updateResponse.json().catch(() => ({}));
+                alert(data.message || "Could not update session duration before starting.");
+                return;
+            }
+        }
+
+        const response = await authFetch(apiUrl(`/sessions/${sessionId}/start`), { method: "PUT" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            alert(data.message || "Could not start the study session.");
+            return;
+        }
+
+        await pollActiveSession();
+        await loadMineSessions();
+    } catch (err) {
+        console.error("Failed to start shared session:", err);
+        alert("Could not reach the server to start the study session.");
+    }
+}
+
+async function loadMineSessions() {
+    if (!currentUser || !sessionsList) return;
+    try {
+        const response = await authFetch(apiUrl("/sessions/mine"));
+        const data = await response.json();
+        if (!response.ok) return;
+
+        renderSessions(data);
+
+        // Only after Accept (joined) — invited users must not enter the waiting room yet
+        const pendingJoined = data.find((s) =>
+            s.status === "pending" && getMySessionStatus(s) === "joined"
+        );
+        if (pendingJoined && !activeSharedSessionId) {
+            showSharedSessionBanner(pendingJoined);
+            // Host can still edit duration before pressing Go; guests wait
+            setEditDurationEnabled(!!pendingJoined.isHost);
+            const pomodoroEl = document.getElementById("pomodoro-timer");
+            if (pomodoroEl) {
+                pomodoroEl.dataset.duration = pendingJoined.durationMinutes;
+                if (currentTimerElement === pomodoroEl && !isRunning) {
+                    timeLeft = pendingJoined.durationMinutes * 60;
+                    updateDisplay(timeLeft);
+                }
+            }
+        } else if (!activeSharedSessionId && !pendingJoined) {
+            hideSharedSessionBanner();
+        }
+    } catch (err) {
+        console.error("Failed to load sessions:", err);
+    }
+}
+
+async function loadSessionBuddies() {
+    try {
+        const response = await authFetch(apiUrl("/buddies"));
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+            sessionBuddies = data;
+        }
+    } catch (err) {
+        console.error("Failed to load buddies for invites:", err);
+    }
+}
+
+function renderBuddyPicker(excludeIds = []) {
+    if (!sessionBuddyPicker) return;
+    const exclude = new Set(excludeIds.map(Number));
+    const available = sessionBuddies.filter((buddy) => !exclude.has(Number(buddy.id)));
+
+    if (!available.length) {
+        sessionBuddyPicker.innerHTML = '<p class="buddy-empty">No buddies available to invite.</p>';
+        return;
+    }
+
+    sessionBuddyPicker.innerHTML = available.map((buddy) => `
+        <label class="session-buddy-option">
+            <input type="checkbox" value="${buddy.id}">
+            <span>${escapeSessionHtml(buddy.name)} <span class="buddy-meta">@${escapeSessionHtml(buddy.username)}</span></span>
+        </label>
+    `).join("");
+}
+
+function showSessionModalError(message) {
+    if (!sessionModalError) return;
+    sessionModalError.textContent = message;
+    sessionModalError.style.display = "block";
+}
+
+function hideSessionModalError() {
+    if (!sessionModalError) return;
+    sessionModalError.style.display = "none";
+    sessionModalError.textContent = "";
+}
+
+function setSessionModalMode(mode) {
+    const isInvite = mode === "invite";
+    if (sessionLabelField) sessionLabelField.style.display = isInvite ? "none" : "";
+    if (sessionDurationField) sessionDurationField.style.display = isInvite ? "none" : "";
+    if (sessionBuddyField) sessionBuddyField.style.display = "";
+    if (sessionBuddyFieldLabel) {
+        sessionBuddyFieldLabel.textContent = isInvite ? "Invite more buddies" : "Invite buddies";
+    }
+    if (sessionModalTitle) {
+        sessionModalTitle.textContent = isInvite ? "Invite Buddies" : "New Study Session";
+    }
+    if (createSessionBtn) {
+        createSessionBtn.textContent = isInvite ? "Send Invites" : "Create Session";
+    }
+}
+
+function openSessionModalForCreate() {
+    invitingSessionId = null;
+    hideSessionModalError();
+    if (sessionLabelInput) sessionLabelInput.value = "";
+    if (sessionDurationInput) sessionDurationInput.value = 25;
+    setSessionModalMode("create");
+    renderBuddyPicker();
+    if (sessionModal) sessionModal.style.display = "flex";
+}
+
+function openSessionModalForInvite(sessionId) {
+    hideSessionModalError();
+    authFetch(apiUrl(`/sessions/${sessionId}`))
+        .then((r) => r.json())
+        .then((session) => {
+            if (!session || !session.id) return;
+            if (session.status !== "pending") {
+                alert("Invites are only allowed before the session starts.");
+                return;
+            }
+            invitingSessionId = session.id;
+            const alreadyIn = session.participants
+                .filter((p) => p.status === "joined" || p.status === "invited")
+                .map((p) => p.userId);
+            setSessionModalMode("invite");
+            renderBuddyPicker(alreadyIn);
+            if (sessionModal) sessionModal.style.display = "flex";
+        })
+        .catch((err) => console.error("Failed to load session for invite:", err));
+}
+
+function closeSessionModal() {
+    if (sessionModal) sessionModal.style.display = "none";
+    invitingSessionId = null;
+}
+
+async function submitSession() {
+    createSessionBtn.disabled = true;
+    hideSessionModalError();
+
+    try {
+        let response;
+
+        if (invitingSessionId) {
+            const buddyIds = Array.from(
+                sessionBuddyPicker.querySelectorAll("input[type=checkbox]:checked")
+            ).map((cb) => parseInt(cb.value, 10));
+
+            if (!buddyIds.length) {
+                showSessionModalError("Select at least one buddy to invite.");
+                return;
+            }
+
+            response = await authFetch(apiUrl(`/sessions/${invitingSessionId}/invite`), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ buddyIds })
+            });
+        } else {
+            const duration = parseInt(sessionDurationInput.value, 10);
+            if (Number.isNaN(duration) || duration < 25 || duration > 180) {
+                showSessionModalError("Duration must be between 25 and 180 minutes.");
+                return;
+            }
+            const label = sessionLabelInput.value.trim();
+            const buddyIds = Array.from(
+                sessionBuddyPicker.querySelectorAll("input[type=checkbox]:checked")
+            ).map((cb) => parseInt(cb.value, 10));
+
+            response = await authFetch(apiUrl("/sessions"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ label, durationMinutes: duration, buddyIds })
+            });
+        }
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showSessionModalError(data.message || "Could not save session.");
+            return;
+        }
+
+        closeSessionModal();
+        await loadMineSessions();
+    } catch (err) {
+        console.error("Failed to save session:", err);
+        showSessionModalError("Could not reach the server.");
+    } finally {
+        createSessionBtn.disabled = false;
+    }
+}
+
+if (newSessionBtn) {
+    newSessionBtn.addEventListener("click", async () => {
+        await loadSessionBuddies();
+        openSessionModalForCreate();
+    });
+}
+if (closeSessionBtn) {
+    closeSessionBtn.addEventListener("click", closeSessionModal);
+}
+if (createSessionBtn) {
+    createSessionBtn.addEventListener("click", submitSession);
+}
+if (sessionModal) {
+    sessionModal.addEventListener("click", (event) => {
+        if (event.target === sessionModal) closeSessionModal();
+    });
 }
 
 // Timer is live: sync the local countdown to the shared server end time
@@ -1199,7 +1656,7 @@ async function pollActiveSession() {
         const session = await response.json();
         if (response.ok && session) {
             handleActiveSession(session);
-        } else {
+        } else if (activeSharedSessionId !== null) {
             clearActiveSession();
         }
     } catch (err) {
@@ -1208,7 +1665,16 @@ async function pollActiveSession() {
 }
 
 if (currentUser) {
+    loadSessionBuddies();
+    loadMineSessions();
     pollActiveSession();
     // Poll frequently so a pause/resume by one member freezes the timer for all quickly
     setInterval(pollActiveSession, 4000);
+    setInterval(loadMineSessions, 8000);
 }
+
+// Let the notification widget refresh this page's session list after join/decline
+window.loadBuddyData = () => {
+    loadMineSessions();
+    pollActiveSession();
+};

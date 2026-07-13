@@ -58,15 +58,10 @@
         </section>
 
         <section class="buddies-card">
-            <div class="buddies-card-header">
-                <h2><i class="fa-solid fa-people-group"></i> Study Together</h2>
-                <button id="newSessionBtn" class="session-new-btn">
-                    <i class="fa-solid fa-plus"></i> New Session
-                </button>
-            </div>
-            <ul id="sessionsList" class="buddy-list">
-                <li class="buddy-empty">No active study sessions. Start one to focus with your buddies!</li>
-            </ul>
+            <p class="buddy-empty" style="margin: 0;">
+                Study Together sessions are managed on the
+                <a href="pomodoro.html" style="color: #ffe0d4; text-decoration: underline;">Pomodoro</a> page.
+            </p>
         </section>
 
         <section class="buddies-card">
@@ -91,42 +86,6 @@
             </label>
             <button id="savePrivacyBtn" class="privacy-save-btn">Save Privacy Settings</button>
         </section>
-    </div>
-
-    <div id="sessionModal" class="glassModalOverlay" style="display: none;">
-        <div class="glassModalContent sessionModalContent">
-            <button id="closeSessionBtn" class="closeModalBtn" type="button">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-
-            <h2>New Study Session</h2>
-
-            <div class="sessionModalBody">
-                <label class="session-field">
-                    <span>Session name (optional)</span>
-                    <input type="text" id="sessionLabelInput" maxlength="255" placeholder="e.g. Math finals grind"
-                        autocomplete="off">
-                </label>
-
-                <label class="session-field">
-                    <span>Focus duration (minutes)</span>
-                    <div class="session-duration-row">
-                        <input type="number" id="sessionDurationInput" min="25" max="180" step="1" value="25">
-                        <span class="durationUnit">min</span>
-                    </div>
-                </label>
-
-                <div class="session-field">
-                    <span>Invite buddies</span>
-                    <div id="sessionBuddyPicker" class="session-buddy-picker">
-                        <p class="buddy-empty">Loading buddies...</p>
-                    </div>
-                </div>
-
-                <p id="sessionModalError" class="durationModalError" style="display: none;"></p>
-                <button type="button" id="createSessionBtn" class="pomodoroButton durationSaveBtn">Create Session</button>
-            </div>
-        </div>
     </div>
 
     <script src="config.js"></script>
