@@ -1,7 +1,6 @@
 const allTimersDisplays = document.querySelectorAll('.timer-display');
 const allButtons = document.querySelectorAll('button[id$="-session"]');
 const startButton = document.getElementById('start');
-const stopButton = document.getElementById('stop');
 const alarmSound = document.getElementById('alarm-sound');
 const stopAlarmBtn = document.getElementById('stop-alarm-btn');
 const taskSelect = document.getElementById("activeTaskSelect");
@@ -9,6 +8,21 @@ const taskTimeDisplay = document.getElementById("taskTimeDisplay")
 const timeSpentValue = document.getElementById("timeSpentValue");
 
 const goBackBtn = document.getElementById("goBackBtn");
+
+/** Flip the single control between go (play) and stop icons. */
+function setTimerControlMode(mode) {
+    if (!startButton) return;
+    const isStop = mode === "stop";
+    const label = isStop ? "Stop" : "Go";
+    const icon = isStop ? "fa-stop" : "fa-play";
+    startButton.dataset.mode = isStop ? "stop" : "go";
+    startButton.title = label;
+    startButton.setAttribute("aria-label", label);
+    startButton.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
+    startButton.disabled = false;
+    startButton.style.opacity = "1";
+    startButton.style.pointerEvents = "auto";
+}
 
 if (goBackBtn) {
     goBackBtn.addEventListener("click", () => {
@@ -301,19 +315,14 @@ function updateDisplay(timeInSeconds) {
 
 
 /**
- * Stops any running timer and resets the display buttons' text.
+ * Stops any running timer and resets the control to Go.
  */
 function stopTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
     }
     isRunning = false;
-    startButton.disabled = false;
-    startButton.textContent = "START";
-
-    stopButton.disabled = true;
-    stopButton.style.opacity = "0.5";
-    stopButton.style.pointerEvents = "none";
+    setTimerControlMode("go");
 
     setEditDurationEnabled(true);
 
@@ -382,7 +391,6 @@ function countdown() {
         stopAlarmBtn.style.display = "block";
 
         startButton.style.display = "none";
-        stopButton.style.display = "none";
 
         return;
     }
@@ -411,16 +419,9 @@ function startCountdown() {
     endTime = Date.now() + (timeLeft * 1000);
     // --- NEW LOGIC END ---
 
-    // Set state and disable start button
+    // Set state and flip control to Stop
     isRunning = true;
-    startButton.disabled = true;
-    startButton.textContent = "Running...";
-    startButton.style.opacity = "0.5";
-    startButton.style.pointerEvents = "none";
-
-    stopButton.disabled = false;
-    stopButton.style.opacity = "1";
-    stopButton.style.pointerEvents = "auto";
+    setTimerControlMode("stop");
 
     setEditDurationEnabled(false);
 
@@ -433,6 +434,23 @@ function startCountdown() {
     timerInterval = setInterval(countdown, 1000);
 }
 
+function pauseCountdown() {
+    // In a shared session, stopping freezes the timer for every participant
+    if (activeSharedSessionId) {
+        pauseSharedSession();
+        return;
+    }
+    stopTimer();
+}
+
+function handleTimerControlClick() {
+    if (isRunning) {
+        pauseCountdown();
+    } else {
+        startCountdown();
+    }
+}
+
 function dismissAlarm() {
     // 1. Pause the audio
     alarmSound.pause();
@@ -443,12 +461,9 @@ function dismissAlarm() {
     // 3. Hide the Stop Alarm button
     stopAlarmBtn.style.display = "none";
 
-    // 4. Show the Start button again
-    startButton.style.display = "block";
-    startButton.style.opacity = "1";
-    startButton.style.pointerEvents = "auto";
-    stopButton.style.display = "block";
-    startButton.textContent = "START";
+    // 4. Show the toggle control again
+    startButton.style.display = "";
+    setTimerControlMode("go");
 
     // 5. Reset the timer value (rewind the clock)
     timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
@@ -466,34 +481,16 @@ allButtons.forEach(button => {
     })
 });
 
-// 2. Attach listener to the Start button (Starting logic)
-startButton.addEventListener('click', startCountdown);
+// 2. Single go / stop toggle
+if (startButton) {
+    startButton.addEventListener('click', handleTimerControlClick);
+}
 
 updateDisplay(timeLeft);
-
-stopButton.disabled = true;
-stopButton.style.opacity = "0.5";
-stopButton.style.pointerEvents = "none";
 
 // Don't forget to listen for the click!
 if (stopAlarmBtn) {
     stopAlarmBtn.addEventListener('click', dismissAlarm);
-}
-
-// 3. Attach listener to the Stop button
-if (stopButton) {
-    stopButton.addEventListener('click', () => {
-        // In a shared session, stopping freezes the timer for every participant
-        if (activeSharedSessionId) {
-            pauseSharedSession();
-            return;
-        }
-        stopTimer();
-        // Optional: Make it clear the timer is paused
-        startButton.textContent = "RESUME";
-        startButton.style.opacity = "1";
-        startButton.style.pointerEvents = "auto";
-    });
 }
 
 // Analytics *Start*
@@ -1078,14 +1075,7 @@ function applyRunningSession(session) {
         }
     }
 
-    startButton.disabled = true;
-    startButton.textContent = "Running...";
-    startButton.style.opacity = "0.5";
-    startButton.style.pointerEvents = "none";
-
-    stopButton.disabled = false;
-    stopButton.style.opacity = "1";
-    stopButton.style.pointerEvents = "auto";
+    setTimerControlMode("stop");
 
     updateDisplay(Math.max(0, timeLeft));
 }
@@ -1100,14 +1090,7 @@ function applyPausedSession(session) {
     timeLeft = session.secondsRemaining;
     updateDisplay(Math.max(0, timeLeft));
 
-    startButton.disabled = false;
-    startButton.textContent = "RESUME";
-    startButton.style.opacity = "1";
-    startButton.style.pointerEvents = "auto";
-
-    stopButton.disabled = true;
-    stopButton.style.opacity = "0.5";
-    stopButton.style.pointerEvents = "none";
+    setTimerControlMode("go");
 }
 
 function handleActiveSession(session) {
@@ -1148,7 +1131,7 @@ function clearActiveSession() {
         stopTimer();
     }
     setEditDurationEnabled(true);
-    startButton.textContent = "START";
+    setTimerControlMode("go");
 }
 
 function freezeLocalSharedTimer() {
@@ -1162,14 +1145,7 @@ function freezeLocalSharedTimer() {
     }
     updateDisplay(Math.max(0, timeLeft));
 
-    startButton.disabled = false;
-    startButton.textContent = "RESUME";
-    startButton.style.opacity = "1";
-    startButton.style.pointerEvents = "auto";
-
-    stopButton.disabled = true;
-    stopButton.style.opacity = "0.5";
-    stopButton.style.pointerEvents = "none";
+    setTimerControlMode("go");
 }
 
 async function pauseSharedSession() {

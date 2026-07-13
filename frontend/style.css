@@ -79,13 +79,13 @@ body
     max-width: 400px;
     max-height: calc(100vh - 100px);
     overflow-y: visible;
-    padding: 2rem;
+    padding: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
     grid-column: 2;
-    gap: 30px;
+    gap: 20px;
     color: white;
     border-radius: 20px;
     box-shadow: 0 0 100px rgba(0, 0, 0, 0.5);
@@ -458,12 +458,37 @@ body.dark-mode .motivationalQuote
     font-weight: bold;
 }
 
+/* Single pale go / stop toggle */
+.media-control-btn
+{
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    box-shadow: none;
+    font-size: 1.05rem;
+    font-weight: normal;
+}
+
+.media-control-btn .fa-play
+{
+    margin-left: 0.15rem; /* optically center the play triangle */
+}
+
+.media-control-btn:hover
+{
+    background: rgba(255, 255, 255, 0.42);
+    transform: scale(1.08);
+}
+
 .buttons
 {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
 }
 
 
@@ -471,12 +496,13 @@ main
 {
     display: flex;
     align-items: center;
+    justify-content: center;
     width: 18rem;
     height: 18rem;
     border-radius: 50%;
     text-align: center;
     margin: 0 auto;
-    margin-bottom: 2rem;    
+    margin-bottom: 0.5rem;    
 }
 
 .time
@@ -491,8 +517,8 @@ main
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    width: 100%;
-    height: 100%;
+    width: 250px;
+    height: 250px;
     position: relative;
     text-align: center;
     border-radius: 50%;

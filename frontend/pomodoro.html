@@ -101,9 +101,12 @@
             </main>
 
             <div class="buttons focus-mode-content">
-                <button class="pomodoroButton start-stop-btn" id="start">START</button>
-                <button class="pomodoroButton start-stop-btn" id="stop">STOP</button>
-                <button id="stop-alarm-btn" class="pomodoroButton start-stop-btn" style="display: none;">
+                <button type="button" class="pomodoroButton start-stop-btn media-control-btn" id="start"
+                    data-mode="go" title="Go" aria-label="Go">
+                    <i class="fa-solid fa-play" aria-hidden="true"></i>
+                </button>
+                <button type="button" id="stop-alarm-btn" class="pomodoroButton start-stop-btn"
+                    style="display: none;">
                     REWIND
                 </button>
             </div>
