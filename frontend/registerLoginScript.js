@@ -7,35 +7,52 @@ const registerButton = document.getElementById('registerBtn');
 const loginEmailInput = document.getElementById('loginEmail');
 const loginPasswordInput = document.getElementById('loginPassword');
 const loginButton = document.getElementById('loginBtn');
+const guestLoginBtn = document.getElementById('guestLoginBtn');
 
 //For directing.html
-const todoBtn = document.querySelector('.directingButton:nth-of-type(1)'); // First button
-const pomodoroBtn = document.querySelector('.directingButton:nth-of-type(2)'); // Second button
-const buddiesBtn = document.querySelector('.directingButton:nth-of-type(3)'); // Third button
-const messagesBtn = document.querySelector('.directingButton:nth-of-type(4)'); // Fourth button
+const todoBtn = document.getElementById('directToTodoBtn')
+    || document.querySelector('.directingButton:nth-of-type(1)');
+const pomodoroBtn = document.getElementById('directToPomodoroBtn')
+    || document.querySelector('.directingButton:nth-of-type(2)');
+const buddiesBtn = document.getElementById('directToBuddiesBtn')
+    || document.querySelector('.directingButton:nth-of-type(3)');
+const messagesBtn = document.getElementById('directToMessagesBtn')
+    || document.querySelector('.directingButton:nth-of-type(4)');
 
 if (todoBtn) {
     todoBtn.addEventListener('click', () => {
-        window.location.href = 'index.html'; // Or whatever your To-Do HTML file is named
+        window.location.href = 'index.html';
     });
 }
 
 if (pomodoroBtn) {
     pomodoroBtn.addEventListener('click', () => {
-        window.location.href = 'pomodoro.html'; // Or whatever your Pomodoro HTML file is named
+        window.location.href = 'pomodoro.html';
     });
 }
 
 if (buddiesBtn) {
-    buddiesBtn.addEventListener('click', () => {
-        window.location.href = 'buddies.html';
-    });
+    if (typeof isGuestSession === 'function' && isGuestSession()) {
+        buddiesBtn.disabled = true;
+        buddiesBtn.classList.add('directingButton--disabled');
+        buddiesBtn.title = 'Log in to use Study Buddies';
+    } else {
+        buddiesBtn.addEventListener('click', () => {
+            window.location.href = 'buddies.html';
+        });
+    }
 }
 
 if (messagesBtn) {
-    messagesBtn.addEventListener('click', () => {
-        window.location.href = 'messages.html';
-    });
+    if (typeof isGuestSession === 'function' && isGuestSession()) {
+        messagesBtn.disabled = true;
+        messagesBtn.classList.add('directingButton--disabled');
+        messagesBtn.title = 'Log in to use Messages';
+    } else {
+        messagesBtn.addEventListener('click', () => {
+            window.location.href = 'messages.html';
+        });
+    }
 }
 //For directing.html
 
@@ -47,6 +64,31 @@ if (registerButton) {
 // Only attach the login handler if the button exists
 if (loginButton) {
     loginButton.addEventListener('click', handleLogin);
+}
+
+if (guestLoginBtn) {
+    guestLoginBtn.addEventListener('click', enterGuestMode);
+}
+
+// Guests cannot open buddies or messages at all
+if (typeof isGuestSession === 'function' && isGuestSession()) {
+    const path = (window.location.pathname || '').toLowerCase();
+    if (path.endsWith('buddies.html') || path.endsWith('messages.html')) {
+        window.location.href = 'directing.html';
+    }
+}
+
+function enterGuestMode() {
+    localStorage.removeItem('authToken');
+    localStorage.setItem(GUEST_FLAG_KEY, 'true');
+    localStorage.setItem('loggedInUser', JSON.stringify({
+        id: null,
+        name: 'Guest',
+        username: 'guest',
+        friendCode: null,
+        isGuest: true
+    }));
+    window.location.href = 'directing.html';
 }
 
 
@@ -151,6 +193,9 @@ async function handleLogin(event) {
             return;
         }
 
+        // Real accounts replace any guest session
+        localStorage.removeItem(GUEST_FLAG_KEY);
+
         // Store the auth token used to authorize API requests
         localStorage.setItem("authToken", data.token);
 
@@ -189,7 +234,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 
 
 /**
- * Checks if a user is logged in. If not, redirects to login.html.
+ * Checks if a user is logged in (including guests). If not, redirects to login.html.
  * @returns {object|null} The logged-in user object or null.
  */
 function checkAuthentication() {
@@ -206,6 +251,7 @@ function checkAuthentication() {
     } catch (e) {
         console.error('Error parsing loggedInUser from localStorage:', e);
         localStorage.removeItem('loggedInUser'); // Clear invalid data
+        localStorage.removeItem(GUEST_FLAG_KEY);
         window.location.href = 'login.html';
         return null;
     }
@@ -213,13 +259,10 @@ function checkAuthentication() {
 
 /**
  * Handles the logout process: clears session data and redirects.
+ * For guests this is the "Log In" action — end guest mode and go to login.
  */
 function handleLogout() {
-    // 1. Remove the logged-in user data and auth token from local storage
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('authToken');
-    
-    // 2. Redirect the user back to the login page
+    clearGuestSession();
     window.location.href = 'login.html';
 }
 
@@ -231,12 +274,17 @@ if (userEmailDisplay && logoutBtn) {
 
     // 2. If user is successfully authenticated, update the UI
     if (currentUser) {
-        const label = currentUser.username
-            ? `@${currentUser.username}`
-            : currentUser.name;
-        userEmailDisplay.textContent = `Logged in as: ${label}`;
+        if (isGuestSession()) {
+            userEmailDisplay.textContent = 'Logged in as: guest user';
+            logoutBtn.innerHTML = 'Log In <i class="fa-solid fa-right-to-bracket"></i>';
+        } else {
+            const label = currentUser.username
+                ? `@${currentUser.username}`
+                : currentUser.name;
+            userEmailDisplay.textContent = `Logged in as: ${label}`;
+        }
     }
 
-    // 3. Attach Logout Event Listener
+    // 3. Attach Logout / Log In Event Listener
     logoutBtn.addEventListener('click', handleLogout);
 }

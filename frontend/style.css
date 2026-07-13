@@ -677,6 +677,49 @@ main
     border-color: #E07951;
 }
 
+.directingButton--disabled,
+.directingButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.directingButton--disabled:hover,
+.directingButton:disabled:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: none;
+    box-shadow: none;
+}
+
+.analyticsGuestPrompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 220px;
+    text-align: center;
+    color: #fff;
+    padding: 1.5rem;
+}
+
+.analyticsGuestPrompt p {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.analyticsGuestPrompt #analyticsLoginBtn {
+    flex-grow: 0;
+    width: min(18rem, 85%);
+    min-height: 0;
+    height: auto;
+    padding: 0.55rem 1.5rem;
+    font-size: 1rem;
+}
+
 .go-back-btn {
     /* 1. Positioning: Stick to Top-Left */
     position: fixed;

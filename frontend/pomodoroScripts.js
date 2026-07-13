@@ -40,6 +40,8 @@ try {
     localStorage.removeItem("loggedInUser");
 }
 
+const guestMode = typeof isGuestSession === "function" && isGuestSession();
+
 // Wrapper around fetch that attaches the auth token and handles expired sessions
 async function authFetch(url, options = {}) {
     const token = localStorage.getItem("authToken");
@@ -48,6 +50,9 @@ async function authFetch(url, options = {}) {
     if (response.status === 401) {
         localStorage.removeItem("loggedInUser");
         localStorage.removeItem("authToken");
+        if (typeof GUEST_FLAG_KEY !== "undefined") {
+            localStorage.removeItem(GUEST_FLAG_KEY);
+        }
         window.location.href = "login.html";
     }
     return response;
@@ -215,8 +220,12 @@ async function loadTasksIntoDropdown() {
     taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
 
     try {
-        const response = await authFetch(apiUrl("/tasks"));
-        const savedTasks = await response.json();
+        const savedTasks = guestMode
+            ? getGuestTasks()
+            : await (async () => {
+                const response = await authFetch(apiUrl("/tasks"));
+                return response.json();
+            })();
 
         // Clear existing options
         taskSelect.innerHTML = '<option value="">-- No Task Selected --</option>';
@@ -274,16 +283,25 @@ async function addTimeToSelectedTask() {
 
 
     try {
-        // Update time_spent in database
-        await authFetch(apiUrl(`/tasks/${selectedTaskId}`), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                task_name: selectedOption.textContent,
-                task_completed: false,
-                time_spent: newTimeSpent
-            })
-        });
+        if (guestMode) {
+            const tasks = getGuestTasks();
+            const index = tasks.findIndex((t) => String(t.id) === String(selectedTaskId));
+            if (index !== -1) {
+                tasks[index].time_spent = newTimeSpent;
+                saveGuestTasks(tasks);
+            }
+        } else {
+            // Update time_spent in database
+            await authFetch(apiUrl(`/tasks/${selectedTaskId}`), {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    task_name: selectedOption.textContent,
+                    task_completed: false,
+                    time_spent: newTimeSpent
+                })
+            });
+        }
 
         // Refresh dropdown
         await loadTasksIntoDropdown();
@@ -384,7 +402,9 @@ function countdown() {
         if (currentTimerElement.id === "pomodoro-timer") {
 
             addTimeToSelectedTask();
-            recordStreakCompletion();
+            if (!guestMode) {
+                recordStreakCompletion();
+            }
 
         }
         
@@ -569,10 +589,22 @@ async function generateAnalytics() {
 
     const spinner = document.getElementById("analyticsLoadingSpinner");
     const canvas = document.getElementById("focusChart");
+    const guestPrompt = document.getElementById("analyticsGuestPrompt");
+    const registeredContent = document.getElementById("analyticsRegisteredContent");
+
+    if (guestMode) {
+        if (spinner) spinner.style.display = "none";
+        if (registeredContent) registeredContent.style.display = "none";
+        if (guestPrompt) guestPrompt.style.display = "flex";
+        return;
+    }
+
+    if (guestPrompt) guestPrompt.style.display = "none";
+    if (registeredContent) registeredContent.style.display = "block";
 
     // Show spinner hide chart
-    spinner.style.display = "flex";
-    canvas.style.display = "none";
+    if (spinner) spinner.style.display = "flex";
+    if (canvas) canvas.style.display = "none";
 
     try {
         const response = await authFetch(apiUrl("/analytics"));
@@ -623,7 +655,6 @@ async function generateAnalytics() {
         }
 
         // Draw chart
-        const canvas = document.getElementById("focusChart");
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
@@ -677,8 +708,8 @@ async function generateAnalytics() {
         console.error("Failed to generate analytics:", err);
     } finally {
         // Always hide spinner and show chart when it is done
-        spinner.style.display = "none";
-        canvas.style.display = "block";
+        if (spinner) spinner.style.display = "none";
+        if (canvas) canvas.style.display = "block";
     }
 }
 
@@ -718,7 +749,7 @@ function updateStreakDisplay(currentStreak) {
 }
 
 async function loadStreak() {
-    if (!currentUser) return null;
+    if (!currentUser || guestMode) return null;
 
     try {
         const response = await authFetch(apiUrl("/streak"));
@@ -732,7 +763,7 @@ async function loadStreak() {
 }
 
 async function recordStreakCompletion() {
-    if (!currentUser) return;
+    if (!currentUser || guestMode) return;
 
     const pomodoroTimer = document.getElementById("pomodoro-timer");
     const minutes = parseInt(pomodoroTimer?.dataset.duration) || 25;
@@ -965,13 +996,15 @@ async function openStreakModal() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    loadStreak();
+    if (!guestMode) {
+        loadStreak();
+    }
 
     const openStreakBtn = document.getElementById("openStreakDetailsBtn");
     const closeStreakBtn = document.getElementById("closeStreakBtn");
     const streakModal = document.getElementById("streakModal");
 
-    if (openStreakBtn && closeStreakBtn && streakModal) {
+    if (!guestMode && openStreakBtn && closeStreakBtn && streakModal) {
         openStreakBtn.addEventListener("click", (e) => {
             e.preventDefault();
             openStreakModal();
@@ -1031,13 +1064,43 @@ if (focusModeBtn) {
     }
 }
 
-if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken")) {
+if (typeof DoDoPresence !== "undefined" && localStorage.getItem("authToken") && !guestMode) {
     DoDoPresence.startHeartbeat();
 }
+
+function applyGuestPomodoroRestrictions() {
+    if (!guestMode) return;
+
+    const streakContainer = document.querySelector(".streakContainer");
+    if (streakContainer) streakContainer.style.display = "none";
+
+    const studyTogether = document.querySelector(".studyTogetherContainer");
+    if (studyTogether) studyTogether.style.display = "none";
+
+    const sessionModal = document.getElementById("sessionModal");
+    if (sessionModal) sessionModal.style.display = "none";
+
+    const analyticsLoginBtn = document.getElementById("analyticsLoginBtn");
+    if (analyticsLoginBtn) {
+        analyticsLoginBtn.addEventListener("click", () => {
+            if (typeof clearGuestSession === "function") {
+                clearGuestSession();
+            } else {
+                localStorage.removeItem("isGuest");
+                localStorage.removeItem("loggedInUser");
+                localStorage.removeItem("authToken");
+            }
+            window.location.href = "login.html";
+        });
+    }
+}
+
+applyGuestPomodoroRestrictions();
 
 // --- Shared Study Session sync + management (pomodoro is the control surface) ---
 // Host creates/invites/starts/ends here. Guests leave without affecting others.
 // Mid-join after the countdown starts is blocked on the backend.
+// Unavailable in guest mode.
 
 let activeSharedSessionId = null;
 let sharedSessionBanner = null;
@@ -1664,7 +1727,7 @@ async function pollActiveSession() {
     }
 }
 
-if (currentUser) {
+if (currentUser && !guestMode) {
     loadSessionBuddies();
     loadMineSessions();
     pollActiveSession();
@@ -1675,6 +1738,7 @@ if (currentUser) {
 
 // Let the notification widget refresh this page's session list after join/decline
 window.loadBuddyData = () => {
+    if (guestMode) return;
     loadMineSessions();
     pollActiveSession();
 };

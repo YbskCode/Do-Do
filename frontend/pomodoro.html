@@ -244,23 +244,29 @@
                 <p>Loading analytics...</p>
             </div>
 
-            <div class="kpiContainer">
-                <div class="kpiCard">
-                    <h3>Total Focus Time</h3>
-                    <p id="totalFocusTimeDisplay">0 minutes</p>
-                </div>
-            </div>
-            <div class="kpiContainer">
-                <div class="kpiCard">
-                    <h3>Most Time Spent Task</h3>
-                    <p id="mostTimeSpentTask">No Task</p>
-                    <p id="mostTimeSpentTaskTime">0 minutes</p>
-                </div>
+            <div id="analyticsGuestPrompt" class="analyticsGuestPrompt" style="display: none;">
+                <p>Want to See your progress? Log In</p>
+                <button type="button" id="analyticsLoginBtn" class="pomodoroButton">Log In</button>
             </div>
 
+            <div id="analyticsRegisteredContent">
+                <div class="kpiContainer">
+                    <div class="kpiCard">
+                        <h3>Total Focus Time</h3>
+                        <p id="totalFocusTimeDisplay">0 minutes</p>
+                    </div>
+                </div>
+                <div class="kpiContainer">
+                    <div class="kpiCard">
+                        <h3>Most Time Spent Task</h3>
+                        <p id="mostTimeSpentTask">No Task</p>
+                        <p id="mostTimeSpentTaskTime">0 minutes</p>
+                    </div>
+                </div>
 
-            <div class="chartContainer">
-                <canvas id="focusChart"></canvas>
+                <div class="chartContainer">
+                    <canvas id="focusChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
