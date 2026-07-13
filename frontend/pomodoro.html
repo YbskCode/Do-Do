@@ -74,6 +74,18 @@
                     Time spent: <span id="timeSpentValue">0</span> minutes
                 </p>
             </div>
+
+            <div class="studyTogetherContainer focus-mode-hide">
+                <div class="buddies-card-header">
+                    <h2><i class="fa-solid fa-people-group"></i> Study Together</h2>
+                    <button type="button" id="newSessionBtn" class="session-new-btn">
+                        <i class="fa-solid fa-plus"></i> New
+                    </button>
+                </div>
+                <ul id="sessionsList" class="buddy-list studySessionsList">
+                    <li class="buddy-empty">No study sessions yet. Create one to focus with buddies.</li>
+                </ul>
+            </div>
         </div>
 
         <div class="todoApp pomodoroApp focus-mode-content">
@@ -249,6 +261,42 @@
 
             <div class="chartContainer">
                 <canvas id="focusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="sessionModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent sessionModalContent">
+            <button id="closeSessionBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 id="sessionModalTitle">New Study Session</h2>
+
+            <div class="sessionModalBody">
+                <label class="session-field" id="sessionLabelField">
+                    <span>Session name (optional)</span>
+                    <input type="text" id="sessionLabelInput" maxlength="255" placeholder="e.g. Math finals grind"
+                        autocomplete="off">
+                </label>
+
+                <label class="session-field" id="sessionDurationField">
+                    <span>Focus duration (minutes)</span>
+                    <div class="session-duration-row">
+                        <input type="number" id="sessionDurationInput" min="25" max="180" step="1" value="25">
+                        <span class="durationUnit">min</span>
+                    </div>
+                </label>
+
+                <div class="session-field" id="sessionBuddyField">
+                    <span id="sessionBuddyFieldLabel">Invite buddies</span>
+                    <div id="sessionBuddyPicker" class="session-buddy-picker">
+                        <p class="buddy-empty">Loading buddies...</p>
+                    </div>
+                </div>
+
+                <p id="sessionModalError" class="durationModalError" style="display: none;"></p>
+                <button type="button" id="createSessionBtn" class="pomodoroButton durationSaveBtn">Create Session</button>
             </div>
         </div>
     </div>

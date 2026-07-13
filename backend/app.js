@@ -989,6 +989,7 @@ function sessionSecondsRemaining(session) {
 }
 
 function buildSessionPayload(session, participants, userId) {
+    const mine = participants.find((p) => Number(p.user_id) === Number(userId));
     return {
         id: session.id,
         hostId: session.host_id,
@@ -1000,6 +1001,7 @@ function buildSessionPayload(session, participants, userId) {
         isPaused: !!session.is_paused,
         secondsRemaining: sessionSecondsRemaining(session),
         isHost: session.host_id === userId,
+        myStatus: mine ? mine.status : null,
         participants: participants.map((p) => ({
             userId: p.user_id,
             name: p.name,
@@ -1214,7 +1216,7 @@ app.get("/notifications", authenticateToken, (req, res) => {
                  JOIN study_sessions s ON s.id = sp.session_id
                  JOIN users u ON u.id = s.host_id
                  WHERE sp.user_id = ? AND sp.status = 'invited'
-                   AND s.status IN ('pending', 'active')
+                   AND s.status = 'pending'
                  ORDER BY s.created_at DESC`,
                 [userId],
                 (sErr, inviteRows) => {
@@ -1333,7 +1335,8 @@ app.put("/sessions/:id", authenticateToken, (req, res) => {
     });
 });
 
-// Host starts the session - sets the shared, server-authoritative end time
+// Host starts the session - sets the shared, server-authoritative end time.
+// Outstanding invites expire so nobody can mid-join after the countdown begins.
 app.put("/sessions/:id/start", authenticateToken, (req, res) => {
     ensureSessionHost(req.params.id, req.user.id, res, (session) => {
         if (session.status !== "pending") {
@@ -1351,15 +1354,81 @@ app.put("/sessions/:id/start", authenticateToken, (req, res) => {
                     res.status(500).json({ message: "Database error" });
                     return;
                 }
-                loadSessionWithParticipants(session.id, res, (s, p) => {
-                    res.status(200).json(buildSessionPayload(s, p, req.user.id));
-                });
+                db.query(
+                    `UPDATE session_participants SET status = 'declined', responded_at = NOW()
+                     WHERE session_id = ? AND status = 'invited'`,
+                    [session.id],
+                    (expireErr) => {
+                        if (expireErr) {
+                            console.error(expireErr);
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+                        loadSessionWithParticipants(session.id, res, (s, p) => {
+                            res.status(200).json(buildSessionPayload(s, p, req.user.id));
+                        });
+                    }
+                );
             }
         );
     });
 });
 
-// Invited buddy joins the session
+// Host invites more buddies while the session is still waiting to start
+app.post("/sessions/:id/invite", authenticateToken, (req, res) => {
+    ensureSessionHost(req.params.id, req.user.id, res, (session) => {
+        if (session.status !== "pending") {
+            res.status(400).json({ message: "Cannot invite after the session has started" });
+            return;
+        }
+
+        const rawBuddyIds = Array.isArray(req.body.buddyIds) ? req.body.buddyIds : [];
+        const requestedIds = [...new Set(
+            rawBuddyIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id !== req.user.id)
+        )];
+
+        if (requestedIds.length === 0) {
+            res.status(400).json({ message: "Select at least one buddy to invite" });
+            return;
+        }
+
+        getAcceptedFriendIds(req.user.id, (err, friendIds) => {
+            if (err) {
+                console.error(err);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            const friendSet = new Set(friendIds);
+            const invitees = requestedIds.filter((id) => friendSet.has(id));
+            if (invitees.length === 0) {
+                res.status(400).json({ message: "Only accepted buddies can be invited" });
+                return;
+            }
+
+            const participantRows = invitees.map((id) => [session.id, id, "invited"]);
+            db.query(
+                `INSERT INTO session_participants (session_id, user_id, status) VALUES ?
+                 ON DUPLICATE KEY UPDATE status = IF(status IN ('declined', 'left'), 'invited', status),
+                                        invited_at = IF(status IN ('declined', 'left'), CURRENT_TIMESTAMP, invited_at),
+                                        responded_at = IF(status IN ('declined', 'left'), NULL, responded_at)`,
+                [participantRows],
+                (partErr) => {
+                    if (partErr) {
+                        console.error(partErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    loadSessionWithParticipants(session.id, res, (s, p) => {
+                        res.status(200).json(buildSessionPayload(s, p, req.user.id));
+                    });
+                }
+            );
+        });
+    });
+});
+
+// Invited buddy joins the session (only before the countdown starts)
 app.put("/sessions/:id/join", authenticateToken, (req, res) => {
     const sessionId = req.params.id;
     const userId = req.user.id;
@@ -1374,8 +1443,8 @@ app.put("/sessions/:id/join", authenticateToken, (req, res) => {
             res.status(404).json({ message: "Session not found" });
             return;
         }
-        if (!["pending", "active"].includes(effectiveSessionStatus(sessions[0]))) {
-            res.status(400).json({ message: "This session is no longer available" });
+        if (effectiveSessionStatus(sessions[0]) !== "pending") {
+            res.status(400).json({ message: "This session has already started. Mid-join is not allowed." });
             return;
         }
 
