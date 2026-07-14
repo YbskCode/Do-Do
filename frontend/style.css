@@ -1778,6 +1778,39 @@ body.dark-mode .inputArea input {
 }
 
 /* Buddy leaderboard */
+.leaderboard-open-btn {
+    background: #E07951;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.leaderboard-open-btn:hover {
+    background: #d15656;
+    transform: scale(1.05);
+}
+
+.leaderboardModalContent {
+    max-width: 640px;
+    max-height: min(85vh, 720px);
+    overflow-y: auto;
+    padding-top: 2.5rem;
+}
+
+.leaderboard-modal-header {
+    margin-bottom: 0.5rem;
+}
+
+.leaderboard-modal-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    text-align: left;
+}
+
 .leaderboard-champions {
     display: grid;
     grid-template-columns: 1fr;

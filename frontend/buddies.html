@@ -60,18 +60,13 @@
         <section class="buddies-card" id="leaderboardSection">
             <div class="buddies-card-header">
                 <h2><i class="fa-solid fa-trophy"></i> Leaderboard</h2>
-                <span id="leaderboardWeekLabel" class="buddy-refresh-hint">This week</span>
+                <button type="button" id="openLeaderboardBtn" class="leaderboard-open-btn">
+                    View
+                </button>
             </div>
-            <p class="buddy-profile-hint" id="leaderboardHint">
-                Ranked by focus minutes among you and your buddies. Completing pomodoros counts — todos do not.
+            <p class="buddy-profile-hint" style="margin: 0;">
+                Weekly focus minutes and streaks among you and your buddies.
             </p>
-            <div id="leaderboardChampions" class="leaderboard-champions"></div>
-            <p id="leaderboardHiddenNote" class="leaderboard-hidden-note" style="display: none;">
-                You are hidden from the leaderboard. Turn on “Appear on buddy leaderboard” in Privacy to join.
-            </p>
-            <ol id="leaderboardList" class="leaderboard-list">
-                <li class="buddy-empty">Loading leaderboard...</li>
-            </ol>
         </section>
 
         <section class="buddies-card">
@@ -100,6 +95,29 @@
             </label>
             <button id="savePrivacyBtn" class="privacy-save-btn">Save Privacy Settings</button>
         </section>
+    </div>
+
+    <div id="leaderboardModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent leaderboardModalContent">
+            <button id="closeLeaderboardBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="buddies-card-header leaderboard-modal-header">
+                <h2><i class="fa-solid fa-trophy"></i> Leaderboard</h2>
+                <span id="leaderboardWeekLabel" class="buddy-refresh-hint">This week</span>
+            </div>
+            <p class="buddy-profile-hint" id="leaderboardHint">
+                Ranked by focus minutes among you and your buddies. Completing pomodoros counts — todos do not.
+            </p>
+            <div id="leaderboardChampions" class="leaderboard-champions"></div>
+            <p id="leaderboardHiddenNote" class="leaderboard-hidden-note" style="display: none;">
+                You are hidden from the leaderboard. Turn on “Appear on buddy leaderboard” in Privacy to join.
+            </p>
+            <ol id="leaderboardList" class="leaderboard-list">
+                <li class="buddy-empty">Loading leaderboard...</li>
+            </ol>
+        </div>
     </div>
 
     <script src="config.js"></script>

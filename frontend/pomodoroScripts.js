@@ -65,7 +65,7 @@ let endTime = null;
 let currentTimerElement = document.getElementById('pomodoro-timer');
 let timeLeft = parseInt(currentTimerElement.dataset.duration) * 60;
 
-const POMODORO_MIN_MINUTES = 25;
+const POMODORO_MIN_MINUTES = 1;
 const BREAK_MIN_MINUTES = 5;
 const POMODORO_DURATION_KEY = 'pomodoroDurationMinutes';
 const BREAK_DURATION_KEY = 'breakDurationMinutes';
