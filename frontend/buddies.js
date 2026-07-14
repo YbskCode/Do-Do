@@ -7,9 +7,14 @@ const requestsList = document.getElementById("requestsList");
 const buddiesList = document.getElementById("buddiesList");
 const showPresenceToggle = document.getElementById("showPresenceToggle");
 const showTaskNameToggle = document.getElementById("showTaskNameToggle");
+const showOnLeaderboardToggle = document.getElementById("showOnLeaderboardToggle");
 const savePrivacyBtn = document.getElementById("savePrivacyBtn");
 const myUsername = document.getElementById("myUsername");
 const myFriendCode = document.getElementById("myFriendCode");
+const leaderboardList = document.getElementById("leaderboardList");
+const leaderboardChampions = document.getElementById("leaderboardChampions");
+const leaderboardWeekLabel = document.getElementById("leaderboardWeekLabel");
+const leaderboardHiddenNote = document.getElementById("leaderboardHiddenNote");
 
 let buddyPollTimer = null;
 let currentBuddies = [];
@@ -171,6 +176,105 @@ async function loadRequests() {
     }
 }
 
+function formatShortDate(isoDate) {
+    if (!isoDate) return "";
+    const [y, m, d] = isoDate.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatMinutes(minutes) {
+    const value = Number(minutes) || 0;
+    if (value >= 60) {
+        const hours = Math.floor(value / 60);
+        const mins = value % 60;
+        return mins ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return `${value}m`;
+}
+
+function renderLeaderboard(data) {
+    if (!leaderboardList) return;
+
+    if (leaderboardWeekLabel && data.weekStart && data.weekEnd) {
+        leaderboardWeekLabel.textContent =
+            `${formatShortDate(data.weekStart)} – ${formatShortDate(data.weekEnd)}`;
+    }
+
+    if (leaderboardHiddenNote) {
+        leaderboardHiddenNote.style.display = data.showOnLeaderboard === false ? "block" : "none";
+    }
+
+    if (leaderboardChampions) {
+        const most = data.champions?.mostFocused;
+        const longest = data.champions?.longestStreak;
+        const chips = [];
+
+        if (most && (most.totalFocusMinutes || 0) > 0) {
+            chips.push(`
+                <div class="leaderboard-champ ${most.isMe ? "leaderboard-champ--me" : ""}">
+                    <span class="leaderboard-champ-label"><i class="fa-solid fa-clock"></i> Most focused</span>
+                    <strong>${escapeHtml(most.name)}${most.isMe ? " (you)" : ""}</strong>
+                    <span class="buddy-meta">@${escapeHtml(most.username)} · ${formatMinutes(most.totalFocusMinutes)} all-time</span>
+                </div>
+            `);
+        }
+        if (longest && (longest.longestStreak || 0) > 0) {
+            chips.push(`
+                <div class="leaderboard-champ ${longest.isMe ? "leaderboard-champ--me" : ""}">
+                    <span class="leaderboard-champ-label"><i class="fa-solid fa-fire"></i> Longest streak</span>
+                    <strong>${escapeHtml(longest.name)}${longest.isMe ? " (you)" : ""}</strong>
+                    <span class="buddy-meta">@${escapeHtml(longest.username)} · ${longest.longestStreak} day${longest.longestStreak === 1 ? "" : "s"}</span>
+                </div>
+            `);
+        }
+        leaderboardChampions.innerHTML = chips.join("");
+    }
+
+    const rankings = data.rankings || [];
+    if (!rankings.length) {
+        leaderboardList.innerHTML =
+            '<li class="buddy-empty">Add buddies and complete pomodoros to fill the board.</li>';
+        return;
+    }
+
+    leaderboardList.innerHTML = rankings.map((entry) => `
+        <li class="leaderboard-row ${entry.isMe ? "leaderboard-row--me" : ""}">
+            <span class="leaderboard-rank">#${entry.rank}</span>
+            <div class="leaderboard-info">
+                <strong>${escapeHtml(entry.name)}${entry.isMe ? " (you)" : ""}</strong>
+                <span class="buddy-meta">@${escapeHtml(entry.username)}</span>
+            </div>
+            <div class="leaderboard-stats">
+                <span class="leaderboard-stat" title="Focus minutes this week">
+                    <i class="fa-solid fa-clock"></i> ${formatMinutes(entry.weeklyFocusMinutes)}
+                </span>
+                <span class="leaderboard-stat" title="Current streak">
+                    <i class="fa-solid fa-fire"></i> ${entry.currentStreak}
+                </span>
+            </div>
+        </li>
+    `).join("");
+}
+
+async function loadLeaderboard() {
+    if (!leaderboardList) return;
+    try {
+        const response = await DoDoPresence.authFetch(apiUrl("/leaderboard/buddies"));
+        const data = await DoDoPresence.parseJsonResponse(response);
+        if (!response.ok) {
+            leaderboardList.innerHTML =
+                `<li class="buddy-empty">${escapeHtml(data.message || "Could not load leaderboard.")}</li>`;
+            return;
+        }
+        renderLeaderboard(data);
+    } catch (err) {
+        console.error("Failed to load leaderboard:", err);
+        leaderboardList.innerHTML =
+            '<li class="buddy-empty">Could not load leaderboard. Check your connection.</li>';
+    }
+}
+
 async function loadPrivacySettings() {
     try {
         const response = await DoDoPresence.authFetch(apiUrl("/presence/settings"));
@@ -178,6 +282,9 @@ async function loadPrivacySettings() {
         if (response.ok) {
             showPresenceToggle.checked = data.showPresence;
             showTaskNameToggle.checked = data.showTaskName;
+            if (showOnLeaderboardToggle) {
+                showOnLeaderboardToggle.checked = data.showOnLeaderboard !== false;
+            }
         }
     } catch (err) {
         console.error("Failed to load privacy settings:", err);
@@ -185,7 +292,7 @@ async function loadPrivacySettings() {
 }
 
 async function refreshAll() {
-    await Promise.all([loadBuddies(), loadRequests()]);
+    await Promise.all([loadBuddies(), loadRequests(), loadLeaderboard()]);
 }
 
 // Allow the global notification widget to refresh this page after actions
@@ -263,12 +370,16 @@ if (savePrivacyBtn) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     showPresence: showPresenceToggle.checked,
-                    showTaskName: showTaskNameToggle.checked
+                    showTaskName: showTaskNameToggle.checked,
+                    showOnLeaderboard: showOnLeaderboardToggle
+                        ? showOnLeaderboardToggle.checked
+                        : true
                 })
             });
             if (response.ok) {
                 savePrivacyBtn.textContent = "Saved!";
                 setTimeout(() => { savePrivacyBtn.textContent = "Save Privacy Settings"; }, 1500);
+                await loadLeaderboard();
             }
         } catch (err) {
             console.error(err);

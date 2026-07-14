@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Buddies - Do-Do</title>
+    <title>Buddies - Do-Do</title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -34,7 +34,7 @@
     </div>
 
     <div class="buddies-container">
-        <h1 class="buddies-title"><i class="fa-solid fa-user-group"></i> Study Buddies</h1>
+        <h1 class="buddies-title"><i class="fa-solid fa-user-group"></i> Buddies</h1>
 
         <section class="buddies-card">
             <h2>Your Profile</h2>
@@ -57,11 +57,21 @@
             <ul id="requestsList" class="buddy-list"></ul>
         </section>
 
-        <section class="buddies-card">
-            <p class="buddy-empty" style="margin: 0;">
-                Study Together sessions are managed on the
-                <a href="pomodoro.html" style="color: #ffe0d4; text-decoration: underline;">Pomodoro</a> page.
+        <section class="buddies-card" id="leaderboardSection">
+            <div class="buddies-card-header">
+                <h2><i class="fa-solid fa-trophy"></i> Leaderboard</h2>
+                <span id="leaderboardWeekLabel" class="buddy-refresh-hint">This week</span>
+            </div>
+            <p class="buddy-profile-hint" id="leaderboardHint">
+                Ranked by focus minutes among you and your buddies. Completing pomodoros counts — todos do not.
             </p>
+            <div id="leaderboardChampions" class="leaderboard-champions"></div>
+            <p id="leaderboardHiddenNote" class="leaderboard-hidden-note" style="display: none;">
+                You are hidden from the leaderboard. Turn on “Appear on buddy leaderboard” in Privacy to join.
+            </p>
+            <ol id="leaderboardList" class="leaderboard-list">
+                <li class="buddy-empty">Loading leaderboard...</li>
+            </ol>
         </section>
 
         <section class="buddies-card">
@@ -83,6 +93,10 @@
             <label class="privacy-toggle">
                 <input type="checkbox" id="showTaskNameToggle">
                 <span>Show my current task name while focusing</span>
+            </label>
+            <label class="privacy-toggle">
+                <input type="checkbox" id="showOnLeaderboardToggle" checked>
+                <span>Appear on buddy leaderboard</span>
             </label>
             <button id="savePrivacyBtn" class="privacy-save-btn">Save Privacy Settings</button>
         </section>
