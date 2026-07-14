@@ -33,17 +33,90 @@
     <div class="directingDiv">
         <h1 class="wHeader">Welcome To Do-Do</h1>
 
+        <div class="streakContainer directingStreak">
+            <div class="streakSummary">
+                <i class="fa-solid fa-fire streakIcon"></i>
+                <p class="streakCount" id="currentStreakDisplay">0</p>
+                <p class="streakLabel">Day Streak</p>
+            </div>
+            <button type="button" id="openStreakDetailsBtn" class="pomodoroButton streakDetailsBtn">
+                Details
+            </button>
+        </div>
+
         <button class="directingButton" id="directToTodoBtn">To-Do List</button>
         <button class="directingButton" id="directToPomodoroBtn">Pomodoro Timer</button>
         <button class="directingButton" id="directToBuddiesBtn">Buddies</button>
         <button class="directingButton" id="directToMessagesBtn">Messages</button>
     </div>
 
+    <div id="streakModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent streakModalContent">
+            <button id="closeStreakBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2>Streak Details</h2>
+
+            <div id="streakLoadingSpinner" class="loadingSpinner">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <p>Loading streak...</p>
+            </div>
+
+            <div id="streakModalBody" style="display: none;">
+                <div class="kpiContainer">
+                    <div class="kpiCard">
+                        <h3>Current Streak</h3>
+                        <p id="modalCurrentStreak">0 days</p>
+                    </div>
+                </div>
+                <div class="kpiContainer">
+                    <div class="kpiCard">
+                        <h3>Longest Streak</h3>
+                        <p id="modalLongestStreak">0 days</p>
+                    </div>
+                </div>
+
+                <div class="heatmapSection">
+                    <h3>Activity Calendar</h3>
+                    <div class="heatmapLegend">
+                        <span>Less</span>
+                        <span class="heatmapCell heatmapLevel0"></span>
+                        <span class="heatmapCell heatmapLevel1"></span>
+                        <span>More</span>
+                    </div>
+                    <div class="heatmapCalendar">
+                        <div class="heatmapCalendarInner">
+                            <div class="heatmapDayLabels" aria-hidden="true">
+                                <span></span>
+                                <span>Mon</span>
+                                <span></span>
+                                <span>Wed</span>
+                                <span></span>
+                                <span>Fri</span>
+                                <span></span>
+                            </div>
+                            <div class="heatmapMain">
+                                <div id="heatmapMonthLabels" class="heatmapMonthLabels"></div>
+                                <div id="streakHeatmap" class="streakHeatmap"></div>
+                            </div>
+                        </div>
+                        <div id="heatmapInfoCard" class="heatmapInfoCard" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <p class="modalLeaderboardLink">
+                    <a href="buddies.html#leaderboard">See buddy leaderboard</a>
+                </p>
+            </div>
+        </div>
+    </div>
 
     <script src="config.js"></script>
     <script src="presence.js"></script>
     <script src="notifications.js"></script>
     <script src="registerLoginScript.js"></script>
+    <script src="streak.js"></script>
     <script src="darkMode.js"></script>
 </body>
 

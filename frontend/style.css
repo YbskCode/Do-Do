@@ -870,6 +870,22 @@ main
     padding: 10px 16px;
 }
 
+.directingDiv .directingStreak
+{
+    width: 100%;
+    margin: 0;
+}
+
+.directingDiv .directingStreak .streakSummary
+{
+    margin-bottom: 10px;
+}
+
+.directingDiv .directingStreak .streakCount
+{
+    font-size: 2rem;
+}
+
 /* Focus Mode */
 .focusModeContainer
 {
