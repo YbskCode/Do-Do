@@ -92,6 +92,20 @@ function getEffectiveCurrentStreak(currentStreak, lastStreakDate) {
     return 0;
 }
 
+/** Monday of the week containing `date` (local server time). */
+function getWeekStartDate(date = new Date()) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay(); // 0 = Sun … 6 = Sat
+    const offset = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + offset);
+    return formatLocalDate(d);
+}
+
+function getWeekEndDate(weekStartStr) {
+    const [y, m, d] = weekStartStr.split("-").map(Number);
+    return formatLocalDate(addDays(new Date(y, m - 1, d), 6));
+}
+
 function normalizeUsername(username) {
     return String(username || "").trim().toLowerCase();
 }
@@ -483,7 +497,29 @@ app.post("/streak/complete", authenticateToken, (req, res) => {
         db.query(
             "UPDATE users SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ? WHERE id = ?",
             [minutes, userId],
-            onDone
+            (totalErr) => {
+                if (totalErr) {
+                    onDone(totalErr);
+                    return;
+                }
+                // Track per-day minutes for weekly buddy leaderboards
+                db.query(
+                    `INSERT INTO focus_day_stats (user_id, activity_date, minutes)
+                     VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE minutes = minutes + VALUES(minutes)`,
+                    [userId, today, minutes],
+                    (dayErr) => {
+                        if (dayErr && dayErr.code !== "ER_NO_SUCH_TABLE") {
+                            onDone(dayErr);
+                            return;
+                        }
+                        if (dayErr) {
+                            console.error("focus_day_stats missing — run migrate-leaderboard.js");
+                        }
+                        onDone(null);
+                    }
+                );
+            }
         );
     }
 
@@ -900,9 +936,28 @@ app.put("/presence", authenticateToken, (req, res) => {
 // Get privacy settings
 app.get("/presence/settings", authenticateToken, (req, res) => {
     db.query(
-        "SELECT show_presence, show_task_name FROM users WHERE id = ?",
+        "SELECT show_presence, show_task_name, show_on_leaderboard FROM users WHERE id = ?",
         [req.user.id],
         (err, results) => {
+            if (err && err.code === "ER_BAD_FIELD_ERROR") {
+                // Pre-migration fallback
+                db.query(
+                    "SELECT show_presence, show_task_name FROM users WHERE id = ?",
+                    [req.user.id],
+                    (fallbackErr, fallbackRows) => {
+                        if (fallbackErr || !fallbackRows.length) {
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+                        res.status(200).json({
+                            showPresence: !!fallbackRows[0].show_presence,
+                            showTaskName: !!fallbackRows[0].show_task_name,
+                            showOnLeaderboard: true
+                        });
+                    }
+                );
+                return;
+            }
             if (err) {
                 console.error(err);
                 res.status(500).json({ message: "Database error" });
@@ -912,9 +967,12 @@ app.get("/presence/settings", authenticateToken, (req, res) => {
                 res.status(404).json({ message: "User not found" });
                 return;
             }
+            const row = results[0];
             res.status(200).json({
-                showPresence: !!results[0].show_presence,
-                showTaskName: !!results[0].show_task_name
+                showPresence: !!row.show_presence,
+                showTaskName: !!row.show_task_name,
+                // Default on when column is missing / null
+                showOnLeaderboard: row.show_on_leaderboard !== 0 && row.show_on_leaderboard !== false
             });
         }
     );
@@ -924,19 +982,163 @@ app.get("/presence/settings", authenticateToken, (req, res) => {
 app.put("/presence/settings", authenticateToken, (req, res) => {
     const showPresence = req.body.showPresence !== false;
     const showTaskName = !!req.body.showTaskName;
+    const showOnLeaderboard = req.body.showOnLeaderboard !== false;
 
     db.query(
-        "UPDATE users SET show_presence = ?, show_task_name = ? WHERE id = ?",
-        [showPresence, showTaskName, req.user.id],
+        "UPDATE users SET show_presence = ?, show_task_name = ?, show_on_leaderboard = ? WHERE id = ?",
+        [showPresence, showTaskName, showOnLeaderboard, req.user.id],
         (err) => {
+            if (err && err.code === "ER_BAD_FIELD_ERROR") {
+                db.query(
+                    "UPDATE users SET show_presence = ?, show_task_name = ? WHERE id = ?",
+                    [showPresence, showTaskName, req.user.id],
+                    (fallbackErr) => {
+                        if (fallbackErr) {
+                            console.error(fallbackErr);
+                            res.status(500).json({ message: "Database error" });
+                            return;
+                        }
+                        res.status(200).json({ showPresence, showTaskName, showOnLeaderboard: true });
+                    }
+                );
+                return;
+            }
             if (err) {
                 console.error(err);
                 res.status(500).json({ message: "Database error" });
                 return;
             }
-            res.status(200).json({ showPresence, showTaskName });
+            res.status(200).json({ showPresence, showTaskName, showOnLeaderboard });
         }
     );
+});
+
+// Buddy-only weekly leaderboard + all-time champions among accepted buddies
+app.get("/leaderboard/buddies", authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const weekStart = getWeekStartDate();
+    const weekEnd = getWeekEndDate(weekStart);
+
+    getAcceptedFriendIds(userId, (friendErr, friendIds) => {
+        if (friendErr) {
+            console.error(friendErr);
+            res.status(500).json({ message: "Database error" });
+            return;
+        }
+
+        const circleIds = [...new Set([userId, ...(friendIds || [])])];
+        const placeholders = circleIds.map(() => "?").join(",");
+
+        db.query(
+            `SELECT id, name, username, friend_code, current_streak, longest_streak,
+                    last_streak_date, total_focus_minutes,
+                    COALESCE(show_on_leaderboard, TRUE) AS show_on_leaderboard
+             FROM users
+             WHERE id IN (${placeholders})`,
+            circleIds,
+            (userErr, userRows) => {
+                if (userErr && userErr.code === "ER_BAD_FIELD_ERROR") {
+                    res.status(503).json({
+                        message: "Leaderboard not ready yet. Run railway-leaderboard.sql on the database."
+                    });
+                    return;
+                }
+                if (userErr) {
+                    console.error(userErr);
+                    res.status(500).json({ message: "Database error" });
+                    return;
+                }
+
+                db.query(
+                    `SELECT user_id, COALESCE(SUM(minutes), 0) AS weekly_minutes
+                     FROM focus_day_stats
+                     WHERE user_id IN (${placeholders})
+                       AND activity_date >= ? AND activity_date <= ?
+                     GROUP BY user_id`,
+                    [...circleIds, weekStart, weekEnd],
+                    (statErr, weekRows) => {
+                        if (statErr) {
+                            // Table may not exist yet on older deployments
+                            if (statErr.code === "ER_NO_SUCH_TABLE") {
+                                console.error("focus_day_stats missing — run migrate-leaderboard.js");
+                            } else {
+                                console.error(statErr);
+                                res.status(500).json({ message: "Database error" });
+                                return;
+                            }
+                        }
+
+                        const weeklyByUser = {};
+                        (weekRows || []).forEach((row) => {
+                            weeklyByUser[row.user_id] = Number(row.weekly_minutes) || 0;
+                        });
+
+                        const meRow = userRows.find((u) => Number(u.id) === Number(userId));
+                        const showOnLeaderboard = meRow
+                            ? meRow.show_on_leaderboard !== 0 && meRow.show_on_leaderboard !== false
+                            : true;
+
+                        const visible = userRows.filter((u) =>
+                            u.show_on_leaderboard !== 0 && u.show_on_leaderboard !== false
+                        );
+
+                        const rankings = visible
+                            .map((u) => ({
+                                userId: u.id,
+                                name: u.name,
+                                username: u.username,
+                                weeklyFocusMinutes: weeklyByUser[u.id] || 0,
+                                currentStreak: getEffectiveCurrentStreak(
+                                    u.current_streak,
+                                    u.last_streak_date
+                                ),
+                                isMe: Number(u.id) === Number(userId)
+                            }))
+                            .sort((a, b) => {
+                                if (b.weeklyFocusMinutes !== a.weeklyFocusMinutes) {
+                                    return b.weeklyFocusMinutes - a.weeklyFocusMinutes;
+                                }
+                                if (b.currentStreak !== a.currentStreak) {
+                                    return b.currentStreak - a.currentStreak;
+                                }
+                                return a.username.localeCompare(b.username);
+                            })
+                            .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+                        let mostFocused = null;
+                        let longestStreakChamp = null;
+                        visible.forEach((u) => {
+                            const total = Number(u.total_focus_minutes) || 0;
+                            const longest = Number(u.longest_streak) || 0;
+                            const candidate = {
+                                userId: u.id,
+                                name: u.name,
+                                username: u.username,
+                                isMe: Number(u.id) === Number(userId)
+                            };
+                            if (!mostFocused || total > mostFocused.totalFocusMinutes) {
+                                mostFocused = { ...candidate, totalFocusMinutes: total };
+                            }
+                            if (!longestStreakChamp || longest > longestStreakChamp.longestStreak) {
+                                longestStreakChamp = { ...candidate, longestStreak: longest };
+                            }
+                        });
+
+                        res.status(200).json({
+                            weekStart,
+                            weekEnd,
+                            showOnLeaderboard,
+                            rankings,
+                            champions: {
+                                mostFocused,
+                                longestStreak: longestStreakChamp
+                            }
+                        });
+                    }
+                );
+            }
+        );
+    });
 });
 
 // --- Study Together (group pomodoro) ---

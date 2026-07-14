@@ -35,7 +35,7 @@ if (buddiesBtn) {
     if (typeof isGuestSession === 'function' && isGuestSession()) {
         buddiesBtn.disabled = true;
         buddiesBtn.classList.add('directingButton--disabled');
-        buddiesBtn.title = 'Log in to use Study Buddies';
+        buddiesBtn.title = 'Log in to use Buddies';
     } else {
         buddiesBtn.addEventListener('click', () => {
             window.location.href = 'buddies.html';

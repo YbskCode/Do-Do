@@ -1777,6 +1777,121 @@ body.dark-mode .inputArea input {
     width: 100%;
 }
 
+/* Buddy leaderboard */
+.leaderboard-champions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin: 0.75rem 0 1rem;
+}
+
+@media (min-width: 640px) {
+    .leaderboard-champions {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.leaderboard-champ {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.leaderboard-champ--me {
+    border-color: rgba(224, 121, 81, 0.7);
+    background: rgba(224, 121, 81, 0.18);
+}
+
+.leaderboard-champ-label {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.leaderboard-champ-label i {
+    margin-right: 0.25rem;
+}
+
+.leaderboard-hidden-note {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    margin: 0 0 0.75rem;
+}
+
+.leaderboard-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.leaderboard-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-row--me {
+    border-color: rgba(224, 121, 81, 0.7);
+    background: rgba(224, 121, 81, 0.18);
+}
+
+.leaderboard-rank {
+    font-weight: 700;
+    min-width: 2rem;
+    color: #ffe0d4;
+}
+
+.leaderboard-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.leaderboard-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.leaderboard-stat i {
+    margin-right: 0.25rem;
+    opacity: 0.85;
+}
+
+.modalLeaderboardLink {
+    text-align: center;
+    margin: 1rem 0 0;
+}
+
+.modalLeaderboardLink a {
+    color: #ffe0d4;
+    text-decoration: underline;
+    font-size: 0.95rem;
+}
+
+.analyticsGuestLeaderboardHint {
+    font-size: 0.95rem !important;
+    opacity: 0.85;
+    margin: 0 !important;
+}
+
 body.dark-mode .buddies-card {
     background: rgba(0, 0, 0, 0.35);
     border-color: rgba(255, 255, 255, 0.1);
@@ -1788,6 +1903,11 @@ body.dark-mode .buddies-title {
 }
 
 body.dark-mode .buddy-item {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .leaderboard-row,
+body.dark-mode .leaderboard-champ {
     background: rgba(0, 0, 0, 0.25);
 }
 
