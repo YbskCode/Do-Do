@@ -15,9 +15,26 @@ const leaderboardList = document.getElementById("leaderboardList");
 const leaderboardChampions = document.getElementById("leaderboardChampions");
 const leaderboardWeekLabel = document.getElementById("leaderboardWeekLabel");
 const leaderboardHiddenNote = document.getElementById("leaderboardHiddenNote");
+const leaderboardModal = document.getElementById("leaderboardModal");
+const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
+const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
 
 let buddyPollTimer = null;
 let currentBuddies = [];
+
+function openLeaderboardModal() {
+    if (!leaderboardModal) return;
+    leaderboardModal.style.display = "flex";
+    loadLeaderboard();
+}
+
+function closeLeaderboardModal() {
+    if (!leaderboardModal) return;
+    leaderboardModal.style.display = "none";
+    if (window.location.hash === "#leaderboard" || window.location.hash === "#leaderboardSection") {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+}
 
 if (goBackBtn) {
     goBackBtn.addEventListener("click", () => {
@@ -389,6 +406,18 @@ if (savePrivacyBtn) {
     });
 }
 
+if (openLeaderboardBtn) {
+    openLeaderboardBtn.addEventListener("click", openLeaderboardModal);
+}
+if (closeLeaderboardBtn) {
+    closeLeaderboardBtn.addEventListener("click", closeLeaderboardModal);
+}
+if (leaderboardModal) {
+    leaderboardModal.addEventListener("click", (event) => {
+        if (event.target === leaderboardModal) closeLeaderboardModal();
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     if (!localStorage.getItem("authToken") || (typeof isGuestSession === "function" && isGuestSession())) {
         window.location.href = typeof isGuestSession === "function" && isGuestSession()
@@ -402,6 +431,11 @@ document.addEventListener("DOMContentLoaded", () => {
     loadPrivacySettings();
     refreshAll();
     buddyPollTimer = setInterval(refreshAll, 20000);
+
+    const hash = window.location.hash;
+    if (hash === "#leaderboard" || hash === "#leaderboardSection") {
+        openLeaderboardModal();
+    }
 });
 
 window.addEventListener("beforeunload", () => {
