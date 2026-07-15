@@ -301,7 +301,13 @@ body.dark-mode .motivationalQuote
     font-size: 0.9rem;
     color: rgba(255, 255, 255);
     /* Make the email prominent */
-    font-weight: 500; 
+    font-weight: 500;
+    /* Only the email flexes; it truncates instead of pushing buttons off-screen */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .logoutBtn {
@@ -363,6 +369,20 @@ body.dark-mode .motivationalQuote
 {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    /* Keep everything on a single row; the email truncates when space is tight */
+    flex-wrap: nowrap;
+}
+
+/* Buttons keep their size; only the email is allowed to shrink */
+.header-auth > button,
+.header-auth .header-actions,
+.header-auth .darkModeBtn,
+.header-auth .logoutBtn,
+.header-auth .headerIconBtn
+{
+    flex-shrink: 0;
 }
 
 
@@ -2731,12 +2751,521 @@ body.dark-mode .messages-title {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-@media (max-width: 720px) {
+/* =========================================================================
+   RESPONSIVE / MOBILE LAYER
+   Progressive breakpoints: 1024px -> 900px -> 600px -> 400px + landscape.
+   Desktop rules above stay intact; these only override for smaller screens.
+   ========================================================================= */
+
+/* ---- Large tablets / small laptops ---- */
+@media (max-width: 1024px) {
+    .pomodoroLeftPanel {
+        margin-right: 16px;
+    }
+
+    .analyticsContainer {
+        margin-left: 16px;
+    }
+}
+
+/* ---- Tablets: collapse the multi-column layouts into a single stack ---- */
+@media (max-width: 900px) {
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 90px 16px 32px;
+        gap: 20px;
+    }
+
+    /* To-Do page */
+    .todoApp {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    /* Pomodoro page: stack left panel, timer and analytics vertically */
+    .pomodoroContainer {
+        gap: 18px;
+    }
+
+    .pomodoroLeftPanel,
+    .pomodoroApp,
+    .analyticsContainer {
+        grid-column: auto;
+        justify-self: center;
+        align-self: center;
+        margin: 0;
+        width: 100%;
+        max-width: 460px;
+    }
+
+    .pomodoroLeftPanel {
+        max-width: 460px;
+    }
+
+    .pomodoroApp {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    /* Focus mode: single readable column */
+    body.focus-mode .pomodoroContainer {
+        flex-direction: column;
+        padding: 80px 1.25rem 2rem;
+    }
+
+    body.focus-mode .pomodoroLeftPanel,
+    body.focus-mode .pomodoroApp,
+    body.focus-mode .analyticsContainer {
+        flex: 0 1 auto;
+        width: 100%;
+        max-width: 460px;
+    }
+}
+
+/* ---- Phones ---- */
+@media (max-width: 600px) {
+    body {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .container {
+        padding: 84px 12px 28px;
+    }
+
+    /* Header: stays a single row that spans the screen; email truncates */
+    .header-auth,
+    .header-auth--wide {
+        max-width: none;
+        margin: 0 8px;
+        gap: 8px;
+        padding: 9px 12px;
+        border-radius: 0 0 10px 10px;
+    }
+
+    /* On pages that have a floating back button, reserve room for it inside
+       the header so it no longer collides with the email. directing.html has
+       no back button, so its header is left untouched. */
+    body:has(> .go-back-btn) .header-auth {
+        padding-left: 52px;
+    }
+
+    .header-actions {
+        gap: 6px;
+    }
+
+    .user-info {
+        font-size: 0.8rem;
+    }
+
+    .logoutBtn {
+        font-size: 0.8rem;
+        padding: 6px 9px;
+    }
+
+    .darkModeBtn,
+    .headerIconBtn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Sit the back button inside the header bar (vertically centered) instead
+       of floating on top of it. */
+    .go-back-btn {
+        top: 9px;
+        left: 10px;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 0.95rem;
+    }
+
+    .doDoNotify {
+        left: 12px;
+        bottom: 12px;
+    }
+
+    .doDoNotifyBell {
+        width: 46px;
+        height: 46px;
+        font-size: 1.15rem;
+    }
+
+    .doDoNotifyPanel {
+        width: min(88vw, 320px);
+    }
+
+    .doDoNotifyToasts {
+        left: 12px;
+        right: 12px;
+        bottom: 74px;
+    }
+
+    .doDoNotifyToast {
+        max-width: none;
+    }
+
+    /* ---- To-Do list ---- */
+    .todoApp {
+        max-width: 100%;
+        gap: 16px;
+    }
+
+    .todoApp h1 {
+        font-size: 1.7rem;
+    }
+
+    .motivationalQuote {
+        font-size: 0.9rem;
+    }
+
+    .todosContainer {
+        max-height: none;
+    }
+
+    #taskList {
+        padding: 0.5rem;
+    }
+
+    #taskList li {
+        font-size: 1.05rem;
+        padding: 8px 12px;
+    }
+
+    .inputArea input {
+        font-size: 1rem;
+        padding: 12px 16px;
+    }
+
+    .inputArea button {
+        width: 44px;
+        height: 44px;
+        margin-left: 8px;
+    }
+
+    /* Bigger tap targets for edit / delete */
+    .taskButtons button {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+
+    .taskManagerDiv {
+        width: 100%;
+        padding: 0.6rem;
+    }
+
+    .taskManagerButton {
+        font-size: 0.85rem;
+        padding: 0.55rem 0.4rem;
+    }
+
+    /* ---- Directing / welcome ---- */
+    .directingDiv {
+        padding: 2rem 1.25rem;
+        gap: 20px;
+        max-width: 100%;
+    }
+
+    .wHeader {
+        font-size: 2rem;
+    }
+
+    .directingButton {
+        padding: 14px;
+        font-size: 1.1rem;
+    }
+
+    /* ---- Pomodoro ---- */
+    main {
+        width: 15rem;
+        height: 15rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .pomodoro {
+        width: 210px;
+        height: 210px;
+    }
+
+    .time {
+        font-size: 3.6rem !important;
+    }
+
+    .buttonContainer {
+        flex-wrap: wrap;
+    }
+
+    .timerEditBtn {
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+
+    .media-control-btn {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+
+    body.focus-mode .focusModeContainer {
+        top: 12px;
+        right: 12px;
+    }
+
+    /* ---- Buddies ---- */
+    .buddies-container {
+        padding: 84px 12px 28px;
+        gap: 1rem;
+    }
+
+    .buddies-title {
+        font-size: 1.6rem;
+        padding: 0.85rem 1rem;
+    }
+
+    .buddies-card {
+        padding: 1rem;
+    }
+
+    .add-buddy-form {
+        flex-direction: column;
+    }
+
+    .add-buddy-form button {
+        width: 100%;
+    }
+
+    .buddy-item {
+        flex-wrap: wrap;
+        row-gap: 0.6rem;
+    }
+
+    .buddy-actions,
+    .buddy-request-actions {
+        margin-left: auto;
+    }
+
+    .buddy-accept-btn,
+    .buddy-decline-btn,
+    .buddy-remove-btn,
+    .buddy-message-btn {
+        padding: 0.55rem 0.7rem;
+    }
+
+    /* ---- Study Together sessions ---- */
+    .session-item {
+        flex-wrap: wrap;
+        row-gap: 0.6rem;
+    }
+
+    .session-actions {
+        width: 100%;
+    }
+
+    .session-actions button {
+        flex: 1;
+    }
+
+    .sharedSessionBanner {
+        max-width: 100%;
+    }
+
+    /* ---- Modals ---- */
+    .glassModalContent {
+        padding: 22px 18px;
+        width: 94%;
+    }
+
+    .glassModalContent h2 {
+        font-size: 1.5rem;
+    }
+
+    .closeModalBtn {
+        top: 14px;
+        right: 14px;
+        font-size: 1.3rem;
+    }
+
+    .chartContainer {
+        height: 240px;
+    }
+
+    .leaderboardModalContent {
+        padding-top: 2.75rem;
+    }
+
+    .leaderboard-row {
+        grid-template-columns: auto 1fr auto;
+        gap: 0.5rem;
+        padding: 0.6rem 0.65rem;
+    }
+
+    .sessionModalContent .session-buddy-picker {
+        max-height: 150px;
+    }
+
+    /* ---- Messages: show list OR thread, not both ---- */
+    .messages-container {
+        padding: 84px 12px 24px;
+        gap: 1rem;
+    }
+
+    .messages-title {
+        font-size: 1.6rem;
+        padding: 0.85rem 1rem;
+    }
+
     .messages-layout {
         grid-template-columns: 1fr;
+        min-height: 0;
+        gap: 0;
     }
 
     .messages-sidebar {
-        max-height: 220px;
+        max-height: calc(100dvh - 220px);
+    }
+
+    /* When a thread is open on mobile, swap the panels */
+    .messages-layout.thread-open .messages-sidebar {
+        display: none;
+    }
+
+    .messages-layout:not(.thread-open) .messages-thread {
+        display: none;
+    }
+
+    .messages-thread {
+        max-height: calc(100dvh - 200px);
+    }
+
+    .message-bubble {
+        max-width: 85%;
+    }
+
+    /* Mobile-only back button inside the thread header */
+    .thread-back-btn {
+        display: inline-flex;
+    }
+
+    /* While in a conversation, the "Messages" banner acts as a back button */
+    .messages-container:has(.thread-open) .messages-title {
+        cursor: pointer;
+    }
+
+    .messages-container:has(.thread-open) .messages-title:active {
+        background: rgba(0, 0, 0, 0.5);
+    }
+}
+
+/* Back button is hidden on wider screens (both panels visible) */
+.thread-back-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.thread-back-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ---- Very small phones ---- */
+@media (max-width: 400px) {
+    /* Header: collapse "Logout" to an icon-only button to guarantee room */
+    .header-auth,
+    .header-auth--wide {
+        padding: 8px 10px;
+        gap: 6px;
+    }
+
+    .header-actions {
+        gap: 5px;
+    }
+
+    .logoutBtn {
+        padding: 0;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0;
+    }
+
+    .logoutBtn i {
+        font-size: 0.9rem;
+    }
+
+    .todoApp h1 {
+        font-size: 1.5rem;
+    }
+
+    main {
+        width: 13rem;
+        height: 13rem;
+    }
+
+    .pomodoro {
+        width: 185px;
+        height: 185px;
+    }
+
+    .time {
+        font-size: 3rem !important;
+    }
+
+    .pomodoroButton {
+        font-size: 0.82rem;
+    }
+
+    .wHeader {
+        font-size: 1.7rem;
+    }
+
+    .glassModalContent {
+        padding: 20px 14px;
+    }
+
+    .leaderboard-stats {
+        font-size: 0.78rem;
+    }
+}
+
+/* ---- Short landscape phones: reclaim vertical space ---- */
+@media (max-height: 500px) and (orientation: landscape) {
+    .container {
+        padding-top: 72px;
+    }
+
+    main {
+        width: 12rem;
+        height: 12rem;
+    }
+
+    .pomodoro {
+        width: 175px;
+        height: 175px;
+    }
+
+    .time {
+        font-size: 2.8rem !important;
     }
 }

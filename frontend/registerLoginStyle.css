@@ -199,3 +199,54 @@ body.dark-mode .inputArea input {
 .darkModeBtn:hover {
     transform: scale(1.1);
 }
+
+/* =========================================================================
+   RESPONSIVE / MOBILE LAYER (login + register)
+   ========================================================================= */
+@media (max-width: 600px) {
+    body {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .container {
+        margin: 0 12px;
+    }
+
+    .formBox {
+        padding: 1.75rem 1.5rem;
+        gap: 24px;
+    }
+
+    .formBox h1 {
+        font-size: 1.7rem;
+    }
+
+    input {
+        font-size: 1rem;
+        padding: 13px;
+        margin-bottom: 16px;
+    }
+
+    .inputArea button {
+        font-size: 1.05rem;
+        padding: 11px;
+    }
+
+    /* Keep the dark-mode toggle from crowding the form on small screens */
+    .darkModeBtn {
+        top: 14px !important;
+        right: 14px !important;
+    }
+}
+
+@media (max-width: 400px) {
+    .formBox {
+        padding: 1.5rem 1.15rem;
+        gap: 20px;
+    }
+
+    .formBox h1 {
+        font-size: 1.5rem;
+    }
+}
