@@ -1,5 +1,8 @@
 const goBackBtn = document.getElementById("goBackBtn");
 const conversationList = document.getElementById("conversationList");
+const messagesLayout = document.querySelector(".messages-layout");
+const threadBackBtn = document.getElementById("threadBackBtn");
+const messagesTitle = document.querySelector(".messages-title");
 const threadEmpty = document.getElementById("threadEmpty");
 const threadActive = document.getElementById("threadActive");
 const threadBuddyName = document.getElementById("threadBuddyName");
@@ -25,6 +28,36 @@ let lastRenderedMessageId = 0;
 if (goBackBtn) {
     goBackBtn.addEventListener("click", () => {
         window.location.href = "directing.html";
+    });
+}
+
+// On mobile the sidebar and thread swap; this returns to the buddy list.
+function returnToConversationList() {
+    if (messagesLayout) messagesLayout.classList.remove("thread-open");
+    if (threadPollTimer) {
+        clearInterval(threadPollTimer);
+        threadPollTimer = null;
+    }
+    activeBuddyId = null;
+}
+
+if (threadBackBtn) {
+    threadBackBtn.addEventListener("click", () => {
+        returnToConversationList();
+    });
+}
+
+// While in a conversation on mobile, tapping the "Messages" title banner
+// returns to the buddy list.
+if (messagesTitle) {
+    messagesTitle.addEventListener("click", () => {
+        if (
+            window.matchMedia("(max-width: 600px)").matches &&
+            messagesLayout &&
+            messagesLayout.classList.contains("thread-open")
+        ) {
+            returnToConversationList();
+        }
     });
 }
 
@@ -122,6 +155,7 @@ function openThread(userId, name, username) {
 
     threadEmpty.style.display = "none";
     threadActive.style.display = "flex";
+    if (messagesLayout) messagesLayout.classList.add("thread-open");
     threadBuddyName.textContent = name;
     threadBuddyMeta.textContent = username ? `@${username}` : "";
     threadMessages.innerHTML = "";

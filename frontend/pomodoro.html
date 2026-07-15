@@ -31,14 +31,24 @@
 
 
     <div class="header-auth-container focus-mode-hide">
-        <div class="header-auth">
+        <div class="header-auth header-auth--wide">
             <p id="userEmailDisplay" class="user-info"></p>
-            <button id="darkModeBtn" class="darkModeBtn">
-                <i class="fa-solid fa-moon"></i>
-            </button>
-            <button id="logoutBtn" class="logoutBtn">
-                Logout <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
+            <div class="header-actions">
+                <button type="button" id="directToBuddiesBtn" class="headerIconBtn" title="Buddies"
+                    aria-label="Buddies">
+                    <i class="fa-solid fa-user-group"></i>
+                </button>
+                <button type="button" id="directToMessagesBtn" class="headerIconBtn" title="Messages"
+                    aria-label="Messages">
+                    <i class="fa-solid fa-comments"></i>
+                </button>
+                <button id="darkModeBtn" class="darkModeBtn">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="logoutBtn" class="logoutBtn">
+                    Logout <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -161,7 +171,7 @@
 
 
 
-    <div id="analyticsModal" class="glassModalOverlay" style="display: none;">
+      <div id="analyticsModal" class="glassModalOverlay" style="display: none;">
         <div class="glassModalContent">
             <button id="closeAnalyticsBtn" class="closeModalBtn">
                 <i class="fa-solid fa-xmark"></i>
