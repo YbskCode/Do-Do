@@ -19,14 +19,24 @@
     <div id="loading-overlay" class="slide-overlay"></div>
 
     <div class="header-auth-container">
-        <div class="header-auth">
+        <div class="header-auth header-auth--wide">
             <p id="userEmailDisplay" class="user-info"></p>
-            <button id="darkModeBtn" class="darkModeBtn">
-                <i class="fa-solid fa-moon"></i>
-            </button>
-            <button id="logoutBtn" class="logoutBtn">
-                Logout <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
+            <div class="header-actions">
+                <button type="button" id="directToBuddiesBtn" class="headerIconBtn" title="Buddies"
+                    aria-label="Buddies">
+                    <i class="fa-solid fa-user-group"></i>
+                </button>
+                <button type="button" id="directToMessagesBtn" class="headerIconBtn" title="Messages"
+                    aria-label="Messages">
+                    <i class="fa-solid fa-comments"></i>
+                </button>
+                <button id="darkModeBtn" class="darkModeBtn">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="logoutBtn" class="logoutBtn">
+                    Logout <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -46,8 +56,6 @@
 
         <button class="directingButton" id="directToTodoBtn">To-Do List</button>
         <button class="directingButton" id="directToPomodoroBtn">Pomodoro Timer</button>
-        <button class="directingButton" id="directToBuddiesBtn">Buddies</button>
-        <button class="directingButton" id="directToMessagesBtn">Messages</button>
     </div>
 
     <div id="streakModal" class="glassModalOverlay" style="display: none;">

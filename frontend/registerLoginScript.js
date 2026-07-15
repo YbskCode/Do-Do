@@ -18,7 +18,6 @@ const buddiesBtn = document.getElementById('directToBuddiesBtn')
     || document.querySelector('.directingButton:nth-of-type(3)');
 const messagesBtn = document.getElementById('directToMessagesBtn')
     || document.querySelector('.directingButton:nth-of-type(4)');
-
 if (todoBtn) {
     todoBtn.addEventListener('click', () => {
         window.location.href = 'index.html';

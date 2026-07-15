@@ -693,6 +693,53 @@ main
     box-shadow: none;
 }
 
+/* Header profile cluster (buddies + messages + dark mode + logout) */
+.header-auth--wide {
+    max-width: 480px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.headerIconBtn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.headerIconBtn:hover {
+    background: #E07951;
+    border-color: #E07951;
+    transform: scale(1.1);
+}
+
+.headerIconBtn:disabled,
+.headerIconBtn.directingButton--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.headerIconBtn:disabled:hover,
+.headerIconBtn.directingButton--disabled:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: none;
+}
+
+
 .analyticsGuestPrompt {
     display: flex;
     flex-direction: column;
