@@ -1453,7 +1453,6 @@ if (currentUser && !guestMode) {
     setInterval(pollActiveSession, 4000);
     setInterval(loadMineSessions, 8000);
 }
-
 // Let the notification widget refresh this page's session list after join/decline
 window.loadBuddyData = () => {
     if (guestMode) return;
