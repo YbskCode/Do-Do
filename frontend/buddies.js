@@ -357,6 +357,9 @@ async function respondToRequest(requestId, action) {
         });
         if (response.ok) {
             await refreshAll();
+            if (action === "accept" && typeof DoDoAchievements !== "undefined") {
+                DoDoAchievements.check();
+            }
         }
     } catch (err) {
         console.error(err);
