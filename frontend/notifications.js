@@ -75,11 +75,11 @@ const DoDoNotify = (() => {
         }
     }
 
-    function showToast(message) {
+    function showToast(message, iconClass = "fa-bell") {
         if (!toastsEl) return;
         const toast = document.createElement("div");
         toast.className = "doDoNotifyToast";
-        toast.innerHTML = `<i class="fa-solid fa-bell"></i><span>${escapeHtml(message)}</span>`;
+        toast.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${escapeHtml(message)}</span>`;
         toastsEl.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add("show"));
         setTimeout(() => {
@@ -172,6 +172,9 @@ const DoDoNotify = (() => {
         try {
             if (action === "friend-accept") {
                 await DoDoPresence.authFetch(apiUrl(`/buddies/requests/${id}/accept`), { method: "PUT" });
+                if (typeof DoDoAchievements !== "undefined") {
+                    DoDoAchievements.check();
+                }
             } else if (action === "friend-decline") {
                 await DoDoPresence.authFetch(apiUrl(`/buddies/requests/${id}/decline`), { method: "PUT" });
             } else if (action === "session-decline") {
@@ -263,5 +266,5 @@ const DoDoNotify = (() => {
         start();
     }
 
-    return { refresh, start };
+    return { refresh, start, showToast };
 })();

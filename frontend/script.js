@@ -219,6 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             time_spent: parseInt(li.dataset.timeSpent) || 0
                         })
                     });
+                    if (isChecked && typeof DoDoAchievements !== "undefined") {
+                        DoDoAchievements.check();
+                    }
                 }
             } catch (err) {
                 console.error("Failed to update task:", err);

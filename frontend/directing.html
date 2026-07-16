@@ -54,6 +54,19 @@
             </button>
         </div>
 
+        <div class="streakContainer directingAchievements">
+            <div class="streakSummary">
+                <i class="fa-solid fa-medal achievementHeroIcon"></i>
+                <p class="streakCount">
+                    <span id="achievementsUnlockedCount">0</span>/<span id="achievementsTotalCount">0</span>
+                </p>
+                <p class="streakLabel">Achievements</p>
+            </div>
+            <button type="button" id="openAchievementsBtn" class="pomodoroButton streakDetailsBtn">
+                View
+            </button>
+        </div>
+
         <button class="directingButton" id="directToTodoBtn">To-Do List</button>
         <button class="directingButton" id="directToPomodoroBtn">Pomodoro Timer</button>
     </div>
@@ -120,11 +133,37 @@
         </div>
     </div>
 
+    <div id="achievementsModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent achievementsModalContent">
+            <button id="closeAchievementsBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2>Achievements</h2>
+            <p id="modalAchievementsCount" class="achievementModalSummary">0 / 0 unlocked</p>
+
+            <div id="achievementsLoadingSpinner" class="loadingSpinner">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <p>Loading achievements...</p>
+            </div>
+
+            <div id="achievementsGuestPrompt" class="analyticsGuestPrompt" style="display: none;">
+                <p>Log in to unlock and track achievements.</p>
+                <button type="button" id="achievementsLoginBtn" class="pomodoroButton">Log In</button>
+            </div>
+
+            <div id="achievementsModalBody" style="display: none;">
+                <div id="achievementsList" class="achievements-list"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="config.js"></script>
     <script src="presence.js"></script>
     <script src="notifications.js"></script>
     <script src="registerLoginScript.js"></script>
     <script src="streak.js"></script>
+    <script src="achievements.js"></script>
     <script src="darkMode.js"></script>
 </body>
 

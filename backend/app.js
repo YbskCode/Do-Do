@@ -485,6 +485,7 @@ app.get("/streak", authenticateToken, (req, res) => {
 app.post("/streak/complete", authenticateToken, (req, res) => {
     const userId = req.user.id;
     const minutes = Math.max(0, parseInt(req.body.minutes, 10) || 0);
+    const isShared = !!req.body.shared;
     const today = formatLocalDate();
     const yesterday = formatLocalDate(addDays(new Date(), -1));
 
@@ -494,33 +495,56 @@ app.post("/streak/complete", authenticateToken, (req, res) => {
             return;
         }
 
-        db.query(
-            "UPDATE users SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ? WHERE id = ?",
-            [minutes, userId],
-            (totalErr) => {
-                if (totalErr) {
-                    onDone(totalErr);
+        const focusSql = isShared
+            ? `UPDATE users
+               SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ?,
+                   shared_focus_minutes = COALESCE(shared_focus_minutes, 0) + ?
+               WHERE id = ?`
+            : "UPDATE users SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ? WHERE id = ?";
+        const focusParams = isShared ? [minutes, minutes, userId] : [minutes, userId];
+
+        db.query(focusSql, focusParams, (totalErr) => {
+            if (totalErr) {
+                // Older DBs may not have shared_focus_minutes yet — fall back to total only
+                if (isShared && totalErr.code === "ER_BAD_FIELD_ERROR") {
+                    db.query(
+                        "UPDATE users SET total_focus_minutes = COALESCE(total_focus_minutes, 0) + ? WHERE id = ?",
+                        [minutes, userId],
+                        (fallbackErr) => {
+                            if (fallbackErr) {
+                                onDone(fallbackErr);
+                                return;
+                            }
+                            addDayStats(onDone);
+                        }
+                    );
                     return;
                 }
-                // Track per-day minutes for weekly buddy leaderboards
-                db.query(
-                    `INSERT INTO focus_day_stats (user_id, activity_date, minutes)
-                     VALUES (?, ?, ?)
-                     ON DUPLICATE KEY UPDATE minutes = minutes + VALUES(minutes)`,
-                    [userId, today, minutes],
-                    (dayErr) => {
-                        if (dayErr && dayErr.code !== "ER_NO_SUCH_TABLE") {
-                            onDone(dayErr);
-                            return;
-                        }
-                        if (dayErr) {
-                            console.error("focus_day_stats missing — run migrate-leaderboard.js");
-                        }
-                        onDone(null);
-                    }
-                );
+                onDone(totalErr);
+                return;
             }
-        );
+            addDayStats(onDone);
+        });
+
+        function addDayStats(done) {
+            // Track per-day minutes for weekly buddy leaderboards
+            db.query(
+                `INSERT INTO focus_day_stats (user_id, activity_date, minutes)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE minutes = minutes + VALUES(minutes)`,
+                [userId, today, minutes],
+                (dayErr) => {
+                    if (dayErr && dayErr.code !== "ER_NO_SUCH_TABLE") {
+                        done(dayErr);
+                        return;
+                    }
+                    if (dayErr) {
+                        console.error("focus_day_stats missing — run migrate-leaderboard.js");
+                    }
+                    done(null);
+                }
+            );
+        }
     }
 
     function sendStreakResponse(streakData) {
@@ -2157,6 +2181,12 @@ app.put("/messages/conversations/:userId/read", authenticateToken, (req, res) =>
             }
         );
     });
+});
+
+require("./achievements").register(app, {
+    db,
+    authenticateToken,
+    getEffectiveCurrentStreak
 });
 
 const PORT = process.env.PORT || 3000;

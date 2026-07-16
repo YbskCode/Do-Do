@@ -953,6 +953,172 @@ main
     font-size: 2rem;
 }
 
+.directingDiv .directingAchievements
+{
+    width: 100%;
+    margin: 0;
+}
+
+.directingDiv .directingAchievements .streakSummary
+{
+    margin-bottom: 10px;
+}
+
+.directingDiv .directingAchievements .streakCount
+{
+    font-size: 1.7rem;
+}
+
+.achievementHeroIcon
+{
+    font-size: 1.8rem;
+    color: #ffd27a;
+    filter: drop-shadow(0 0 6px rgba(255, 180, 60, 0.55))
+            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.achievementsModalContent
+{
+    max-width: 560px;
+    max-height: min(85vh, 720px);
+    overflow-y: auto;
+}
+
+.achievementModalSummary
+{
+    text-align: center;
+    margin: -8px 0 18px;
+    opacity: 0.85;
+    font-size: 0.95rem;
+}
+
+.achievements-list
+{
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.achievement-item
+{
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    padding: 0.85rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.achievement-item--locked
+{
+    opacity: 0.62;
+}
+
+.achievement-item--unlocked
+{
+    border-color: rgba(224, 121, 81, 0.55);
+    background: rgba(224, 121, 81, 0.16);
+}
+
+.achievement-icon
+{
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffe0d4;
+    font-size: 1.1rem;
+}
+
+.achievement-item--unlocked .achievement-icon
+{
+    background: rgba(224, 121, 81, 0.35);
+    color: #fff;
+}
+
+.achievement-body
+{
+    min-width: 0;
+    flex: 1;
+}
+
+.achievement-title-row
+{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+
+.achievement-title-row strong
+{
+    font-size: 1rem;
+}
+
+.achievement-category
+{
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.achievement-desc
+{
+    margin: 0 0 0.55rem;
+    font-size: 0.85rem;
+    opacity: 0.85;
+    line-height: 1.35;
+}
+
+.achievement-progress
+{
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.achievement-progress-bar
+{
+    flex: 1;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.achievement-progress-bar span
+{
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #E07951, #ffb088);
+}
+
+.achievement-progress-label
+{
+    font-size: 0.75rem;
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+body.dark-mode .achievement-item
+{
+    background: rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .achievement-item--unlocked
+{
+    background: rgba(224, 121, 81, 0.18);
+}
+
 /* Focus Mode */
 .focusModeContainer
 {

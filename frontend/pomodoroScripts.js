@@ -743,8 +743,15 @@ async function recordStreakCompletion() {
         await authFetch(apiUrl("/streak/complete"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ minutes })
+            body: JSON.stringify({
+                minutes,
+                shared: !!activeSharedSessionId
+            })
         });
+
+        if (typeof DoDoAchievements !== "undefined" && typeof DoDoAchievements.check === "function") {
+            await DoDoAchievements.check();
+        }
     } catch (err) {
         console.error("Failed to record streak:", err);
     }

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     longest_streak INT DEFAULT 0,
     last_streak_date DATE NULL,
     total_focus_minutes INT DEFAULT 0,
+    shared_focus_minutes INT DEFAULT 0,
     show_presence BOOLEAN DEFAULT TRUE,
     show_task_name BOOLEAN DEFAULT FALSE,
     show_on_leaderboard BOOLEAN DEFAULT TRUE
@@ -113,4 +114,23 @@ CREATE TABLE IF NOT EXISTS messages (
     INDEX idx_conversation_created (conversation_id, id),
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    achievement_key VARCHAR(64) NOT NULL UNIQUE,
+    title VARCHAR(120) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    icon VARCHAR(64) NOT NULL DEFAULT 'fa-medal',
+    category VARCHAR(32) NOT NULL DEFAULT 'general',
+    sort_order INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+    user_id INT NOT NULL,
+    achievement_id INT NOT NULL,
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, achievement_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE
 );
