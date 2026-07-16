@@ -120,6 +120,26 @@
         </div>
     </div>
 
+    <div id="buddyAchievementsModal" class="glassModalOverlay" style="display: none;">
+        <div class="glassModalContent achievementsModalContent">
+            <button id="closeBuddyAchievementsBtn" class="closeModalBtn" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 id="buddyAchievementsTitle">Achievements</h2>
+            <p id="buddyAchievementsCount" class="achievementModalSummary">0 / 0 unlocked</p>
+
+            <div id="buddyAchievementsLoadingSpinner" class="loadingSpinner">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <p>Loading achievements...</p>
+            </div>
+
+            <div id="buddyAchievementsModalBody" style="display: none;">
+                <div id="buddyAchievementsList" class="achievements-list"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="config.js"></script>
     <script src="presence.js"></script>
     <script src="notifications.js"></script>

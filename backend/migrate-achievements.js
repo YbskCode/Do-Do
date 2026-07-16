@@ -91,6 +91,14 @@ const ACHIEVEMENTS = [
         sort_order: 110
     },
     {
+        key: "month_master",
+        title: "Month Master",
+        description: "Reach a 30-day consecutive focus streak.",
+        icon: "fa-calendar-check",
+        category: "streak",
+        sort_order: 115
+    },
+    {
         key: "checklist_champ",
         title: "Checklist Champ",
         description: "Complete 10 tasks.",

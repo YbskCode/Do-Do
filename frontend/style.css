@@ -2676,6 +2676,22 @@ body.focus-mode .doDoNotifyToasts {
     color: #fff;
 }
 
+.buddy-achievements-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: 8px;
+    padding: 0.45rem 0.55rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.buddy-achievements-btn:hover {
+    background: rgba(255, 210, 122, 0.25);
+    border-color: #ffd27a;
+    color: #fff;
+}
+
 /* --- Messages page --- */
 .messages-container {
     width: 100%;

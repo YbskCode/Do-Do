@@ -66,8 +66,8 @@
         return map[category] || "General";
     }
 
-    function renderAchievementsList(achievements) {
-        const list = document.getElementById("achievementsList");
+    function renderAchievementsList(achievements, listEl) {
+        const list = listEl || document.getElementById("achievementsList");
         if (!list) return;
 
         if (!achievements.length) {
@@ -104,6 +104,18 @@
                 </article>
             `;
         }).join("");
+    }
+
+    async function fetchUserAchievements(userId) {
+        if (!localStorage.getItem("authToken") || typeof DoDoPresence === "undefined") {
+            throw new Error("Not authenticated");
+        }
+        const response = await DoDoPresence.authFetch(apiUrl(`/achievements/user/${userId}`));
+        const data = await DoDoPresence.parseJsonResponse(response);
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to load achievements");
+        }
+        return data;
     }
 
     async function loadAchievementsModal() {
@@ -213,6 +225,8 @@
 
     window.DoDoAchievements = {
         check: checkAchievements,
-        loadSummary
+        loadSummary,
+        renderList: renderAchievementsList,
+        fetchUserAchievements
     };
 })();

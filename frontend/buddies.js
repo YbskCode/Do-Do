@@ -18,6 +18,13 @@ const leaderboardHiddenNote = document.getElementById("leaderboardHiddenNote");
 const leaderboardModal = document.getElementById("leaderboardModal");
 const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
 const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
+const buddyAchievementsModal = document.getElementById("buddyAchievementsModal");
+const closeBuddyAchievementsBtn = document.getElementById("closeBuddyAchievementsBtn");
+const buddyAchievementsTitle = document.getElementById("buddyAchievementsTitle");
+const buddyAchievementsCount = document.getElementById("buddyAchievementsCount");
+const buddyAchievementsList = document.getElementById("buddyAchievementsList");
+const buddyAchievementsLoadingSpinner = document.getElementById("buddyAchievementsLoadingSpinner");
+const buddyAchievementsModalBody = document.getElementById("buddyAchievementsModalBody");
 
 let buddyPollTimer = null;
 let currentBuddies = [];
@@ -34,6 +41,60 @@ function closeLeaderboardModal() {
     if (window.location.hash === "#leaderboard" || window.location.hash === "#leaderboardSection") {
         history.replaceState(null, "", window.location.pathname + window.location.search);
     }
+}
+
+async function openBuddyAchievementsModal(userId, buddyName) {
+    if (!buddyAchievementsModal) return;
+
+    buddyAchievementsModal.style.display = "flex";
+    if (buddyAchievementsTitle) {
+        buddyAchievementsTitle.textContent = buddyName
+            ? `${buddyName}'s Achievements`
+            : "Buddy Achievements";
+    }
+    if (buddyAchievementsCount) {
+        buddyAchievementsCount.textContent = "Loading...";
+    }
+    if (buddyAchievementsLoadingSpinner) {
+        buddyAchievementsLoadingSpinner.style.display = "flex";
+        buddyAchievementsLoadingSpinner.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Loading achievements...</p>
+        `;
+    }
+    if (buddyAchievementsModalBody) buddyAchievementsModalBody.style.display = "none";
+
+    try {
+        if (typeof DoDoAchievements === "undefined") {
+            throw new Error("Achievements module not loaded");
+        }
+        const data = await DoDoAchievements.fetchUserAchievements(userId);
+        if (buddyAchievementsTitle && data.user?.name) {
+            buddyAchievementsTitle.textContent = `${data.user.name}'s Achievements`;
+        }
+        if (buddyAchievementsCount) {
+            buddyAchievementsCount.textContent =
+                `${data.unlockedCount || 0} / ${data.totalCount || 0} unlocked`;
+        }
+        DoDoAchievements.renderList(data.achievements || [], buddyAchievementsList);
+        if (buddyAchievementsLoadingSpinner) buddyAchievementsLoadingSpinner.style.display = "none";
+        if (buddyAchievementsModalBody) buddyAchievementsModalBody.style.display = "block";
+    } catch (err) {
+        console.error(err);
+        if (buddyAchievementsLoadingSpinner) {
+            buddyAchievementsLoadingSpinner.style.display = "flex";
+            buddyAchievementsLoadingSpinner.innerHTML = `
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>${escapeHtml(err.message || "Could not load achievements.")}</p>
+            `;
+        }
+        if (buddyAchievementsCount) buddyAchievementsCount.textContent = "";
+    }
+}
+
+function closeBuddyAchievementsModal() {
+    if (!buddyAchievementsModal) return;
+    buddyAchievementsModal.style.display = "none";
 }
 
 if (goBackBtn) {
@@ -87,6 +148,10 @@ function renderBuddies(buddies) {
                 <button class="buddy-message-btn" data-user-id="${buddy.id}" title="Message">
                     <i class="fa-solid fa-comment"></i>
                 </button>
+                <button class="buddy-achievements-btn" data-user-id="${buddy.id}"
+                    data-name="${escapeHtml(buddy.name)}" title="View achievements">
+                    <i class="fa-solid fa-medal"></i>
+                </button>
                 <button class="buddy-remove-btn" data-user-id="${buddy.id}" title="Remove buddy">
                     <i class="fa-solid fa-user-minus"></i>
                 </button>
@@ -97,6 +162,12 @@ function renderBuddies(buddies) {
     buddiesList.querySelectorAll(".buddy-message-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
             window.location.href = `messages.html?user=${btn.dataset.userId}`;
+        });
+    });
+
+    buddiesList.querySelectorAll(".buddy-achievements-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            openBuddyAchievementsModal(btn.dataset.userId, btn.dataset.name);
         });
     });
 
@@ -418,6 +489,14 @@ if (closeLeaderboardBtn) {
 if (leaderboardModal) {
     leaderboardModal.addEventListener("click", (event) => {
         if (event.target === leaderboardModal) closeLeaderboardModal();
+    });
+}
+if (closeBuddyAchievementsBtn) {
+    closeBuddyAchievementsBtn.addEventListener("click", closeBuddyAchievementsModal);
+}
+if (buddyAchievementsModal) {
+    buddyAchievementsModal.addEventListener("click", (event) => {
+        if (event.target === buddyAchievementsModal) closeBuddyAchievementsModal();
     });
 }
 

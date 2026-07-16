@@ -33,6 +33,7 @@ INSERT INTO achievements (achievement_key, title, description, icon, category, s
 ('lets_study_bro', 'Let''s Study Bro', 'Spend 5,000 minutes studying with buddies.', 'fa-trophy', 'social', 90),
 ('streak_starter', 'Streak Starter', 'Reach a 3-day focus streak.', 'fa-fire', 'streak', 100),
 ('week_warrior', 'Week Warrior', 'Reach a 7-day focus streak.', 'fa-fire-flame-curved', 'streak', 110),
+('month_master', 'Month Master', 'Reach a 30-day consecutive focus streak.', 'fa-calendar-check', 'streak', 115),
 ('checklist_champ', 'Checklist Champ', 'Complete 10 tasks.', 'fa-list-check', 'tasks', 120)
 ON DUPLICATE KEY UPDATE
     title = VALUES(title),

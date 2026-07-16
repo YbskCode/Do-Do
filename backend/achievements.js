@@ -15,10 +15,11 @@ const ACHIEVEMENT_RULES = {
     lets_study_bro: { type: "sharedMinutes", threshold: 5000 },
     streak_starter: { type: "longestStreak", threshold: 3 },
     week_warrior: { type: "longestStreak", threshold: 7 },
+    month_master: { type: "longestStreak", threshold: 30 },
     checklist_champ: { type: "tasksCompleted", threshold: 10 }
 };
 
-function register(app, { db, authenticateToken, getEffectiveCurrentStreak }) {
+function register(app, { db, authenticateToken, getEffectiveCurrentStreak, getAcceptedFriendIds }) {
     function getAchievementStats(userId, callback) {
         db.query(
             `SELECT
@@ -116,7 +117,9 @@ function register(app, { db, authenticateToken, getEffectiveCurrentStreak }) {
         };
     }
 
-    function evaluateAchievements(userId, callback) {
+    function evaluateAchievements(userId, callback, options = {}) {
+        const persistUnlocks = options.persistUnlocks !== false;
+
         getAchievementStats(userId, (statsErr, stats) => {
             if (statsErr) {
                 callback(statsErr);
@@ -146,7 +149,7 @@ function register(app, { db, authenticateToken, getEffectiveCurrentStreak }) {
                         const rule = ACHIEVEMENT_RULES[row.achievement_key] || null;
                         const progress = progressForRule(rule, stats);
                         const alreadyUnlocked = !!row.unlocked_at;
-                        if (!alreadyUnlocked && progress.unlocked) {
+                        if (persistUnlocks && !alreadyUnlocked && progress.unlocked) {
                             toUnlock.push(row);
                         }
                         return {
@@ -165,7 +168,7 @@ function register(app, { db, authenticateToken, getEffectiveCurrentStreak }) {
                         };
                     });
 
-                    if (toUnlock.length === 0) {
+                    if (!persistUnlocks || toUnlock.length === 0) {
                         callback(null, {
                             achievements,
                             newlyUnlocked: [],
@@ -233,6 +236,77 @@ function register(app, { db, authenticateToken, getEffectiveCurrentStreak }) {
                 return;
             }
             res.status(200).json(result);
+        });
+    });
+
+    // View a buddy's achievements (accepted friends only; does not unlock for them)
+    app.get("/achievements/user/:userId", authenticateToken, (req, res) => {
+        const viewerId = req.user.id;
+        const targetId = parseInt(req.params.userId, 10);
+
+        if (!Number.isInteger(targetId)) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+
+        if (targetId === viewerId) {
+            evaluateAchievements(viewerId, (err, result) => {
+                if (err) {
+                    sendAchievementError(res, err);
+                    return;
+                }
+                res.status(200).json(result);
+            });
+            return;
+        }
+
+        if (typeof getAcceptedFriendIds !== "function") {
+            res.status(500).json({ message: "Friend lookup unavailable" });
+            return;
+        }
+
+        getAcceptedFriendIds(viewerId, (friendErr, friendIds) => {
+            if (friendErr) {
+                console.error(friendErr);
+                res.status(500).json({ message: "Database error" });
+                return;
+            }
+
+            if (!friendIds.some((id) => Number(id) === targetId)) {
+                res.status(403).json({ message: "You can only view achievements of your study buddies" });
+                return;
+            }
+
+            db.query(
+                "SELECT id, name, username FROM users WHERE id = ?",
+                [targetId],
+                (userErr, userRows) => {
+                    if (userErr) {
+                        console.error(userErr);
+                        res.status(500).json({ message: "Database error" });
+                        return;
+                    }
+                    if (!userRows.length) {
+                        res.status(404).json({ message: "User not found" });
+                        return;
+                    }
+
+                    evaluateAchievements(targetId, (err, result) => {
+                        if (err) {
+                            sendAchievementError(res, err);
+                            return;
+                        }
+                        res.status(200).json({
+                            ...result,
+                            user: {
+                                id: userRows[0].id,
+                                name: userRows[0].name,
+                                username: userRows[0].username
+                            }
+                        });
+                    }, { persistUnlocks: false });
+                }
+            );
         });
     });
 

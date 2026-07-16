@@ -2186,7 +2186,8 @@ app.put("/messages/conversations/:userId/read", authenticateToken, (req, res) =>
 require("./achievements").register(app, {
     db,
     authenticateToken,
-    getEffectiveCurrentStreak
+    getEffectiveCurrentStreak,
+    getAcceptedFriendIds
 });
 
 const PORT = process.env.PORT || 3000;
